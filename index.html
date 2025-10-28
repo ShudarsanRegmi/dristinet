@@ -232,6 +232,86 @@
             0% { transform: rotate(0deg); }
             100% { transform: rotate(360deg); }
         }
+
+        .view-filters {
+            text-align: center;
+            margin: 20px 0;
+            padding: 20px;
+            background: rgba(255, 255, 255, 0.1);
+            border-radius: 15px;
+            backdrop-filter: blur(10px);
+        }
+
+        .performance-threshold {
+            margin-bottom: 20px;
+            padding: 15px;
+            background: rgba(102, 126, 234, 0.1);
+            border-radius: 10px;
+            text-align: center;
+        }
+
+        .performance-threshold input[type="range"] {
+            width: 200px;
+            margin: 0 10px;
+        }
+
+        .comparison-stats {
+            margin-bottom: 20px;
+        }
+
+        .stat-row {
+            display: flex;
+            justify-content: space-around;
+            flex-wrap: wrap;
+            gap: 20px;
+            padding: 15px;
+            background: rgba(102, 126, 234, 0.1);
+            border-radius: 10px;
+        }
+
+        .stat-item {
+            text-align: center;
+            min-width: 120px;
+        }
+
+        .stat-label {
+            display: block;
+            font-size: 0.9rem;
+            color: #666;
+            margin-bottom: 5px;
+        }
+
+        .stat-value {
+            display: block;
+            font-size: 1.2rem;
+            font-weight: bold;
+            color: #2c3e50;
+        }
+
+        .slow-tests-list {
+            max-height: 300px;
+            overflow-y: auto;
+            margin-top: 20px;
+        }
+
+        .slow-test-item {
+            background: rgba(231, 76, 60, 0.1);
+            border-left: 4px solid #e74c3c;
+            padding: 10px;
+            margin: 10px 0;
+            border-radius: 0 8px 8px 0;
+        }
+
+        .slow-test-speed {
+            font-weight: bold;
+            color: #e74c3c;
+            font-size: 1.1rem;
+        }
+
+        .slow-test-time {
+            font-size: 0.9rem;
+            color: #666;
+        }
     </style>
 </head>
 <body>
@@ -289,6 +369,13 @@
                 <button class="filter-btn" onclick="setTimeFilter('30d')">Last 30 Days</button>
             </div>
 
+            <div class="view-filters">
+                <h4 style="color: white; margin-bottom: 10px;">Analysis Views:</h4>
+                <button class="filter-btn" onclick="toggleView('daily')">📊 Daily Analysis</button>
+                <button class="filter-btn" onclick="toggleView('performance')">⚡ Performance Issues</button>
+                <button class="filter-btn" onclick="toggleView('comparison')">📈 Speed Comparison</button>
+            </div>
+
             <div class="charts-container">
                 <div class="chart-card">
                     <h3><i class="fas fa-chart-line"></i> Speed Over Time</h3>
@@ -308,6 +395,49 @@
                     <h3><i class="fas fa-server"></i> Server Distribution</h3>
                     <div class="chart-container">
                         <canvas id="serverChart"></canvas>
+                    </div>
+                </div>
+
+                <div class="chart-card" id="dailyAnalysisCard" style="display: none;">
+                    <h3><i class="fas fa-calendar-day"></i> Daily Average Analysis</h3>
+                    <div class="chart-container">
+                        <canvas id="dailyChart"></canvas>
+                    </div>
+                </div>
+
+                <div class="chart-card" id="performanceIssuesCard" style="display: none;">
+                    <h3><i class="fas fa-exclamation-circle"></i> Performance Issues & Low Speed Detection</h3>
+                    <div class="performance-threshold">
+                        <label for="speedThreshold" style="color: #2c3e50; margin-right: 10px;">Speed Threshold (Mbps):</label>
+                        <input type="range" id="speedThreshold" min="1" max="20" value="5" step="0.5" onchange="updatePerformanceAnalysis()" style="margin-right: 10px;">
+                        <span id="thresholdValue">5.0</span> Mbps
+                    </div>
+                    <div class="chart-container">
+                        <canvas id="performanceChart"></canvas>
+                    </div>
+                    <div id="slowTestsList"></div>
+                </div>
+
+                <div class="chart-card" id="comparisonCard" style="display: none;">
+                    <h3><i class="fas fa-balance-scale"></i> Speed Comparison Analysis</h3>
+                    <div class="comparison-stats">
+                        <div class="stat-row">
+                            <div class="stat-item">
+                                <span class="stat-label">Peak Download:</span>
+                                <span class="stat-value" id="peakDownload">-</span>
+                            </div>
+                            <div class="stat-item">
+                                <span class="stat-label">Lowest Download:</span>
+                                <span class="stat-value" id="lowestDownload">-</span>
+                            </div>
+                            <div class="stat-item">
+                                <span class="stat-label">Speed Variance:</span>
+                                <span class="stat-value" id="speedVariance">-</span>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="chart-container">
+                        <canvas id="comparisonChart"></canvas>
                     </div>
                 </div>
             </div>
