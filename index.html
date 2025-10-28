@@ -312,6 +312,49 @@
             font-size: 0.9rem;
             color: #666;
         }
+
+        .date-selector {
+            margin-bottom: 20px;
+            padding: 15px;
+            background: rgba(102, 126, 234, 0.1);
+            border-radius: 10px;
+            text-align: center;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            flex-wrap: wrap;
+            gap: 10px;
+        }
+
+        .date-selector select {
+            min-width: 200px;
+        }
+
+        .date-selector button:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 12px rgba(0,0,0,0.2);
+            transition: all 0.3s ease;
+        }
+
+        .daily-stats {
+            margin-bottom: 20px;
+            padding: 15px;
+            background: linear-gradient(135deg, rgba(102, 126, 234, 0.1), rgba(118, 75, 162, 0.1));
+            border-radius: 10px;
+            border-left: 4px solid #667eea;
+        }
+
+        @media (max-width: 768px) {
+            .date-selector {
+                flex-direction: column;
+                text-align: center;
+            }
+            
+            .date-selector label {
+                margin-right: 0 !important;
+                margin-bottom: 10px;
+            }
+        }
     </style>
 </head>
 <body>
@@ -374,6 +417,7 @@
                 <button class="filter-btn" onclick="toggleView('daily')">📊 Daily Analysis</button>
                 <button class="filter-btn" onclick="toggleView('performance')">⚡ Performance Issues</button>
                 <button class="filter-btn" onclick="toggleView('comparison')">📈 Speed Comparison</button>
+                <button class="filter-btn" onclick="toggleView('dailyDetail')">🕐 Hourly Analysis</button>
             </div>
 
             <div class="charts-container">
@@ -395,6 +439,45 @@
                     <h3><i class="fas fa-server"></i> Server Distribution</h3>
                     <div class="chart-container">
                         <canvas id="serverChart"></canvas>
+                    </div>
+                </div>
+
+                <div class="chart-card">
+                    <h3><i class="fas fa-calendar-alt"></i> Day-wise Analysis (24 Hours)</h3>
+                    <div class="date-selector">
+                        <label for="dayAnalysisDateSelect" style="color: #2c3e50; margin-right: 10px; font-weight: bold;">Select Date for 24H Analysis:</label>
+                        <select id="dayAnalysisDateSelect" onchange="updateDayWiseChart()" style="padding: 8px 12px; border-radius: 5px; border: 1px solid #ddd; font-size: 1rem; margin-right: 15px;">
+                            <option value="">Choose a date...</option>
+                        </select>
+                        <button onclick="showTodayDayWise()" style="padding: 8px 16px; background: #667eea; color: white; border: none; border-radius: 5px; cursor: pointer;">Today</button>
+                        <button onclick="showYesterdayDayWise()" style="padding: 8px 16px; background: #764ba2; color: white; border: none; border-radius: 5px; cursor: pointer; margin-left: 5px;">Yesterday</button>
+                    </div>
+                    <div class="daily-stats" id="dayWiseStats" style="display: none;">
+                        <div class="stat-row">
+                            <div class="stat-item">
+                                <span class="stat-label">Total Tests:</span>
+                                <span class="stat-value" id="dayWiseTestCount">-</span>
+                            </div>
+                            <div class="stat-item">
+                                <span class="stat-label">Day Avg Download:</span>
+                                <span class="stat-value" id="dayWiseAvgDownload">-</span>
+                            </div>
+                            <div class="stat-item">
+                                <span class="stat-label">Peak Hour:</span>
+                                <span class="stat-value" id="dayWisePeakHour">-</span>
+                            </div>
+                            <div class="stat-item">
+                                <span class="stat-label">Slowest Hour:</span>
+                                <span class="stat-value" id="dayWiseSlowestHour">-</span>
+                            </div>
+                            <div class="stat-item">
+                                <span class="stat-label">Speed Range:</span>
+                                <span class="stat-value" id="dayWiseSpeedRange">-</span>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="chart-container">
+                        <canvas id="dayWiseChart"></canvas>
                     </div>
                 </div>
 
@@ -438,6 +521,45 @@
                     </div>
                     <div class="chart-container">
                         <canvas id="comparisonChart"></canvas>
+                    </div>
+                </div>
+
+                <div class="chart-card" id="dailyDetailCard" style="display: none;">
+                    <h3><i class="fas fa-clock"></i> Hourly Speed Analysis for Specific Day</h3>
+                    <div class="date-selector">
+                        <label for="dateSelect" style="color: #2c3e50; margin-right: 10px; font-weight: bold;">Select Date:</label>
+                        <select id="dateSelect" onchange="updateDailyDetailChart()" style="padding: 8px 12px; border-radius: 5px; border: 1px solid #ddd; font-size: 1rem; margin-right: 15px;">
+                            <option value="">Choose a date...</option>
+                        </select>
+                        <button onclick="showTodayData()" style="padding: 8px 16px; background: #667eea; color: white; border: none; border-radius: 5px; cursor: pointer;">Today</button>
+                        <button onclick="showYesterdayData()" style="padding: 8px 16px; background: #764ba2; color: white; border: none; border-radius: 5px; cursor: pointer; margin-left: 5px;">Yesterday</button>
+                    </div>
+                    <div class="daily-stats" id="dailyStats" style="display: none;">
+                        <div class="stat-row">
+                            <div class="stat-item">
+                                <span class="stat-label">Tests Count:</span>
+                                <span class="stat-value" id="dayTestCount">-</span>
+                            </div>
+                            <div class="stat-item">
+                                <span class="stat-label">Avg Download:</span>
+                                <span class="stat-value" id="dayAvgDownload">-</span>
+                            </div>
+                            <div class="stat-item">
+                                <span class="stat-label">Peak Speed:</span>
+                                <span class="stat-value" id="dayPeakSpeed">-</span>
+                            </div>
+                            <div class="stat-item">
+                                <span class="stat-label">Lowest Speed:</span>
+                                <span class="stat-value" id="dayLowestSpeed">-</span>
+                            </div>
+                            <div class="stat-item">
+                                <span class="stat-label">Failed Tests:</span>
+                                <span class="stat-value" id="dayFailedTests">-</span>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="chart-container">
+                        <canvas id="dailyDetailChart"></canvas>
                     </div>
                 </div>
             </div>

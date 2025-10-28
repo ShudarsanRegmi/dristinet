@@ -20,7 +20,7 @@ class SpeedtestDashboard {
     }
 
     async loadData() {
-        const response = await fetch('.speedtest_res');
+        const response = await fetch('.speedtest_res.txt');
         const text = await response.text();
         this.parseSpeedtestFile(text);
     }
@@ -47,7 +47,10 @@ class SpeedtestDashboard {
         
         // Find timestamp
         const timestampLine = lines.find(line => line.includes('Timestamp:'));
-        if (!timestampLine) return null;
+        if (!timestampLine) {
+            console.log('No timestamp line found in entry:', entry.substring(0, 100)); // Debug log
+            return null;
+        }
         
         result.timestamp = this.parseTimestamp(timestampLine);
         
@@ -98,7 +101,25 @@ class SpeedtestDashboard {
 
     parseTimestamp(timestampLine) {
         const match = timestampLine.match(/Timestamp:\s*(.+)/);
-        return match ? new Date(match[1]) : new Date();
+        if (!match) return new Date();
+        
+        const timestampStr = match[1].trim();
+        console.log('Parsing timestamp:', timestampStr); // Debug log
+        
+        // Try parsing the timestamp directly first
+        let date = new Date(timestampStr);
+        
+        // If that fails, try parsing as a specific format (YYYY-MM-DD HH:mm:ss)
+        if (isNaN(date.getTime())) {
+            // Handle format like "2025-10-26 11:00:01"
+            const formatMatch = timestampStr.match(/(\d{4}-\d{2}-\d{2})\s+(\d{2}:\d{2}:\d{2})/);
+            if (formatMatch) {
+                date = new Date(`${formatMatch[1]}T${formatMatch[2]}`);
+            }
+        }
+        
+        console.log('Parsed date:', date, 'Valid:', !isNaN(date.getTime())); // Debug log
+        return !isNaN(date.getTime()) ? date : new Date();
     }
 
     extractValue(text, regex) {
@@ -160,6 +181,8 @@ class SpeedtestDashboard {
         this.createSpeedChart();
         this.createLatencyChart();
         this.createServerChart();
+        this.populateDateSelector();
+        this.populateDayAnalysisDateSelector();
     }
 
     createDailyChart() {
@@ -739,6 +762,604 @@ class SpeedtestDashboard {
         document.getElementById('speedVariance').textContent = `±${standardDeviation.toFixed(2)} Mbps`;
     }
 
+    populateDateSelector() {
+        const dateSelect = document.getElementById('dateSelect');
+        
+        console.log('Total data items:', this.data.length); // Debug log
+        console.log('Sample timestamps:', this.data.slice(0, 5).map(item => item.timestamp)); // Debug log
+        
+        // Get unique valid dates
+        const validItems = this.data.filter(item => {
+            const isValid = item.timestamp && !isNaN(new Date(item.timestamp).getTime());
+            if (!isValid) {
+                console.log('Invalid timestamp found:', item.timestamp); // Debug log
+            }
+            return isValid;
+        });
+        
+        console.log('Valid items count:', validItems.length); // Debug log
+        
+        const uniqueDates = [...new Set(validItems
+            .map(item => {
+                const date = new Date(item.timestamp);
+                // Use ISO date string (YYYY-MM-DD) for consistency
+                return date.getFullYear() + '-' + 
+                       String(date.getMonth() + 1).padStart(2, '0') + '-' + 
+                       String(date.getDate()).padStart(2, '0');
+            })
+        )].sort((a, b) => new Date(b) - new Date(a)); // Sort descending (newest first)
+        
+        console.log('Unique dates:', uniqueDates); // Debug log
+        
+        // Clear existing options except the first one
+        dateSelect.innerHTML = '<option value="">Choose a date...</option>';
+        
+        uniqueDates.forEach(date => {
+            const displayText = this.formatDateForDisplay(date);
+            console.log('Date:', date, 'Display:', displayText); // Debug log
+            if (displayText !== 'Invalid Date') {
+                const option = document.createElement('option');
+                option.value = date;
+                option.textContent = displayText;
+                dateSelect.appendChild(option);
+            }
+        });
+    }
+
+    formatDateForDisplay(dateString) {
+        try {
+            // Validate the date string first
+            if (!dateString || dateString === 'Invalid Date') {
+                return 'Invalid Date';
+            }
+            
+            console.log('Formatting date string:', dateString); // Debug log
+            
+            // The dateString is now in YYYY-MM-DD format (ISO date)
+            const date = new Date(dateString + 'T00:00:00'); // Add time to ensure consistent parsing
+            
+            // Check if the date is valid
+            if (isNaN(date.getTime())) {
+                console.log('Invalid date after parsing:', dateString); // Debug log
+                return 'Invalid Date';
+            }
+            
+            const today = new Date();
+            const yesterday = new Date(today);
+            yesterday.setDate(today.getDate() - 1);
+            
+            // Compare dates using ISO date strings for consistency
+            const todayISO = today.getFullYear() + '-' + 
+                           String(today.getMonth() + 1).padStart(2, '0') + '-' + 
+                           String(today.getDate()).padStart(2, '0');
+            const yesterdayISO = yesterday.getFullYear() + '-' + 
+                               String(yesterday.getMonth() + 1).padStart(2, '0') + '-' + 
+                               String(yesterday.getDate()).padStart(2, '0');
+            
+            console.log('Date comparison:', { dateString, todayISO, yesterdayISO }); // Debug log
+            
+            if (dateString === todayISO) {
+                return `Today (${date.toLocaleDateString()})`;
+            } else if (dateString === yesterdayISO) {
+                return `Yesterday (${date.toLocaleDateString()})`;
+            } else {
+                try {
+                    const weekday = date.toLocaleDateString('en-US', { weekday: 'short' });
+                    return `${date.toLocaleDateString()} (${weekday})`;
+                } catch (e) {
+                    return date.toLocaleDateString();
+                }
+            }
+        } catch (error) {
+            console.error('Error formatting date:', error, 'Input:', dateString);
+            return 'Invalid Date';
+        }
+    }
+
+    createDailyDetailChart(selectedDate) {
+        const ctx = document.getElementById('dailyDetailChart').getContext('2d');
+        
+        if (!selectedDate) {
+            // Show empty state
+            if (this.charts.dailyDetail) {
+                this.charts.dailyDetail.destroy();
+            }
+            ctx.font = '16px Arial';
+            ctx.fillStyle = '#666';
+            ctx.textAlign = 'center';
+            ctx.fillText('Please select a date to view hourly analysis', ctx.canvas.width/2, ctx.canvas.height/2);
+            return;
+        }
+
+        const dayData = this.getDayHourlyData(selectedDate);
+        
+        if (this.charts.dailyDetail) {
+            this.charts.dailyDetail.destroy();
+        }
+
+        this.charts.dailyDetail = new Chart(ctx, {
+            type: 'line',
+            data: {
+                datasets: [{
+                    label: 'Download Speed (Mbps)',
+                    data: dayData.map(item => ({
+                        x: item.hour + ':00',
+                        y: item.avgDownload || null
+                    })),
+                    borderColor: '#667eea',
+                    backgroundColor: 'rgba(102, 126, 234, 0.1)',
+                    fill: true,
+                    tension: 0.4,
+                    spanGaps: false
+                }, {
+                    label: 'Upload Speed (Mbps)',
+                    data: dayData.map(item => ({
+                        x: item.hour + ':00',
+                        y: item.avgUpload || null
+                    })),
+                    borderColor: '#764ba2',
+                    backgroundColor: 'rgba(118, 75, 162, 0.1)',
+                    fill: true,
+                    tension: 0.4,
+                    spanGaps: false
+                }, {
+                    label: 'Individual Tests (Download)',
+                    data: dayData.flatMap(item => 
+                        item.tests.filter(test => !test.hasError && test.downloadSpeed !== null)
+                               .map(test => ({
+                                   x: test.time,
+                                   y: test.downloadSpeed
+                               }))
+                    ),
+                    type: 'scatter',
+                    backgroundColor: 'rgba(102, 126, 234, 0.6)',
+                    borderColor: '#667eea',
+                    pointRadius: 4,
+                    showLine: false
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: {
+                    legend: {
+                        position: 'top',
+                    },
+                    tooltip: {
+                        mode: 'index',
+                        intersect: false,
+                        callbacks: {
+                            title: function(context) {
+                                return `${selectedDate} ${context[0].label}`;
+                            },
+                            afterBody: function(context) {
+                                const hour = context[0].label.split(':')[0];
+                                const hourData = dayData.find(d => d.hour === hour);
+                                if (hourData) {
+                                    return [
+                                        `Tests in this hour: ${hourData.testCount}`,
+                                        `Failed tests: ${hourData.failedCount}`,
+                                        `Avg Latency: ${hourData.avgLatency ? hourData.avgLatency.toFixed(1) + ' ms' : 'N/A'}`
+                                    ];
+                                }
+                                return [];
+                            }
+                        }
+                    }
+                },
+                scales: {
+                    x: {
+                        title: {
+                            display: true,
+                            text: 'Hour of Day'
+                        }
+                    },
+                    y: {
+                        title: {
+                            display: true,
+                            text: 'Speed (Mbps)'
+                        },
+                        beginAtZero: true
+                    }
+                },
+                interaction: {
+                    mode: 'nearest',
+                    axis: 'x',
+                    intersect: false
+                }
+            }
+        });
+
+        // Update daily stats
+        this.updateDailyStats(selectedDate, dayData);
+    }
+
+    getDayHourlyData(selectedDate) {
+        console.log('getDayHourlyData called with selectedDate:', selectedDate); // Debug log
+        
+        const dayTests = this.data.filter(item => {
+            const itemDate = new Date(item.timestamp);
+            const itemDateISO = itemDate.getFullYear() + '-' + 
+                              String(itemDate.getMonth() + 1).padStart(2, '0') + '-' + 
+                              String(itemDate.getDate()).padStart(2, '0');
+            
+            const matches = itemDateISO === selectedDate;
+            if (matches) {
+                console.log('Found matching item:', item.timestamp, 'matches', selectedDate); // Debug log
+            }
+            return matches;
+        });
+        
+        console.log('Found', dayTests.length, 'tests for date', selectedDate); // Debug log
+
+        const hourlyGroups = {};
+        
+        // Initialize all 24 hours
+        for (let i = 0; i < 24; i++) {
+            const hour = i.toString().padStart(2, '0');
+            hourlyGroups[hour] = {
+                hour,
+                downloads: [],
+                uploads: [],
+                latencies: [],
+                tests: [],
+                testCount: 0,
+                failedCount: 0
+            };
+        }
+
+        dayTests.forEach(item => {
+            const hour = new Date(item.timestamp).getHours().toString().padStart(2, '0');
+            const time = new Date(item.timestamp).toLocaleTimeString('en-US', { 
+                hour12: false, 
+                hour: '2-digit', 
+                minute: '2-digit' 
+            });
+            
+            hourlyGroups[hour].tests.push({
+                ...item,
+                time
+            });
+            hourlyGroups[hour].testCount++;
+
+            if (item.hasError) {
+                hourlyGroups[hour].failedCount++;
+            } else {
+                if (item.downloadSpeed !== null) hourlyGroups[hour].downloads.push(item.downloadSpeed);
+                if (item.uploadSpeed !== null) hourlyGroups[hour].uploads.push(item.uploadSpeed);
+                if (item.latency !== null) hourlyGroups[hour].latencies.push(item.latency);
+            }
+        });
+
+        return Object.values(hourlyGroups).map(group => ({
+            ...group,
+            avgDownload: group.downloads.length > 0 
+                ? group.downloads.reduce((a, b) => a + b, 0) / group.downloads.length 
+                : null,
+            avgUpload: group.uploads.length > 0 
+                ? group.uploads.reduce((a, b) => a + b, 0) / group.uploads.length 
+                : null,
+            avgLatency: group.latencies.length > 0 
+                ? group.latencies.reduce((a, b) => a + b, 0) / group.latencies.length 
+                : null
+        }));
+    }
+
+    updateDailyStats(selectedDate, dayData) {
+        const allTests = dayData.flatMap(hour => hour.tests);
+        const validTests = allTests.filter(test => !test.hasError && test.downloadSpeed !== null);
+        const failedTests = allTests.filter(test => test.hasError);
+        
+        const totalTests = allTests.length;
+        const avgDownload = validTests.length > 0 
+            ? (validTests.reduce((sum, test) => sum + test.downloadSpeed, 0) / validTests.length).toFixed(2)
+            : '0';
+        const peakSpeed = validTests.length > 0 
+            ? Math.max(...validTests.map(test => test.downloadSpeed)).toFixed(2)
+            : '0';
+        const lowestSpeed = validTests.length > 0 
+            ? Math.min(...validTests.map(test => test.downloadSpeed)).toFixed(2)
+            : '0';
+
+        document.getElementById('dayTestCount').textContent = totalTests;
+        document.getElementById('dayAvgDownload').textContent = avgDownload + ' Mbps';
+        document.getElementById('dayPeakSpeed').textContent = peakSpeed + ' Mbps';
+        document.getElementById('dayLowestSpeed').textContent = lowestSpeed + ' Mbps';
+        document.getElementById('dayFailedTests').textContent = failedTests.length;
+        
+        // Show stats section
+        document.getElementById('dailyStats').style.display = 'block';
+    }
+
+    populateDayAnalysisDateSelector() {
+        const dateSelect = document.getElementById('dayAnalysisDateSelect');
+        
+        // Get unique valid dates (same filtering as main date selector)
+        const validItems = this.data.filter(item => {
+            return item.timestamp && !isNaN(new Date(item.timestamp).getTime());
+        });
+        
+        console.log('Day analysis - Valid items count:', validItems.length); // Debug log
+        
+        const uniqueDates = [...new Set(validItems
+            .map(item => {
+                const date = new Date(item.timestamp);
+                // Use ISO date string (YYYY-MM-DD) for consistency
+                return date.getFullYear() + '-' + 
+                       String(date.getMonth() + 1).padStart(2, '0') + '-' + 
+                       String(date.getDate()).padStart(2, '0');
+            })
+        )].sort((a, b) => new Date(b) - new Date(a)); // Sort descending (newest first)
+        
+        console.log('Day analysis - Unique dates:', uniqueDates); // Debug log
+        
+        // Clear existing options except the first one
+        dateSelect.innerHTML = '<option value="">Choose a date...</option>';
+        
+        uniqueDates.forEach(date => {
+            const displayText = this.formatDateForDisplay(date);
+            if (displayText !== 'Invalid Date') {
+                const option = document.createElement('option');
+                option.value = date;
+                option.textContent = displayText;
+                dateSelect.appendChild(option);
+            }
+        });
+    }
+
+    createDayWiseChart(selectedDate) {
+        const ctx = document.getElementById('dayWiseChart').getContext('2d');
+        
+        if (!selectedDate) {
+            // Show empty state
+            if (this.charts.dayWise) {
+                this.charts.dayWise.destroy();
+            }
+            ctx.font = '16px Arial';
+            ctx.fillStyle = '#666';
+            ctx.textAlign = 'center';
+            ctx.fillText('Please select a date to view 24-hour analysis', ctx.canvas.width/2, ctx.canvas.height/2);
+            return;
+        }
+
+        const hourlyData = this.getDayWiseHourlyData(selectedDate);
+        
+        if (this.charts.dayWise) {
+            this.charts.dayWise.destroy();
+        }
+
+        // Prepare data for all 24 hours
+        const hours = Array.from({length: 24}, (_, i) => i.toString().padStart(2, '0') + ':00');
+        const downloadData = hours.map(hour => {
+            const hourNum = hour.split(':')[0];
+            const hourData = hourlyData.find(h => h.hour === hourNum);
+            return hourData ? hourData.avgDownload : null;
+        });
+        const uploadData = hours.map(hour => {
+            const hourNum = hour.split(':')[0];
+            const hourData = hourlyData.find(h => h.hour === hourNum);
+            return hourData ? hourData.avgUpload : null;
+        });
+        const latencyData = hours.map(hour => {
+            const hourNum = hour.split(':')[0];
+            const hourData = hourlyData.find(h => h.hour === hourNum);
+            return hourData ? hourData.avgLatency : null;
+        });
+
+        this.charts.dayWise = new Chart(ctx, {
+            type: 'line',
+            data: {
+                labels: hours,
+                datasets: [{
+                    label: 'Download Speed (Mbps)',
+                    data: downloadData,
+                    borderColor: '#667eea',
+                    backgroundColor: 'rgba(102, 126, 234, 0.1)',
+                    fill: true,
+                    tension: 0.4,
+                    spanGaps: false,
+                    yAxisID: 'y'
+                }, {
+                    label: 'Upload Speed (Mbps)',
+                    data: uploadData,
+                    borderColor: '#764ba2',
+                    backgroundColor: 'rgba(118, 75, 162, 0.1)',
+                    fill: true,
+                    tension: 0.4,
+                    spanGaps: false,
+                    yAxisID: 'y'
+                }, {
+                    label: 'Latency (ms)',
+                    data: latencyData,
+                    borderColor: '#e74c3c',
+                    backgroundColor: 'rgba(231, 76, 60, 0.1)',
+                    fill: false,
+                    tension: 0.4,
+                    spanGaps: false,
+                    yAxisID: 'y1'
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: {
+                    legend: {
+                        position: 'top',
+                    },
+                    tooltip: {
+                        mode: 'index',
+                        intersect: false,
+                        callbacks: {
+                            title: function(context) {
+                                return `${selectedDate} ${context[0].label}`;
+                            },
+                            afterBody: function(context) {
+                                const hour = context[0].label.split(':')[0];
+                                const hourData = hourlyData.find(d => d.hour === hour);
+                                if (hourData) {
+                                    return [
+                                        `Tests in this hour: ${hourData.testCount}`,
+                                        `Failed tests: ${hourData.failedCount}`,
+                                        hourData.peakDownload ? `Peak speed: ${hourData.peakDownload.toFixed(2)} Mbps` : '',
+                                        hourData.lowestDownload ? `Lowest speed: ${hourData.lowestDownload.toFixed(2)} Mbps` : ''
+                                    ].filter(Boolean);
+                                }
+                                return [];
+                            }
+                        }
+                    }
+                },
+                scales: {
+                    x: {
+                        title: {
+                            display: true,
+                            text: 'Hour of Day (24H Format)'
+                        },
+                        grid: {
+                            display: true,
+                            color: 'rgba(0,0,0,0.1)'
+                        }
+                    },
+                    y: {
+                        type: 'linear',
+                        display: true,
+                        position: 'left',
+                        title: {
+                            display: true,
+                            text: 'Speed (Mbps)'
+                        },
+                        beginAtZero: true
+                    },
+                    y1: {
+                        type: 'linear',
+                        display: true,
+                        position: 'right',
+                        title: {
+                            display: true,
+                            text: 'Latency (ms)'
+                        },
+                        grid: {
+                            drawOnChartArea: false,
+                        },
+                        beginAtZero: true
+                    }
+                },
+                interaction: {
+                    mode: 'nearest',
+                    axis: 'x',
+                    intersect: false
+                }
+            }
+        });
+
+        // Update day-wise stats
+        this.updateDayWiseStats(selectedDate, hourlyData);
+    }
+
+    getDayWiseHourlyData(selectedDate) {
+        console.log('getDayWiseHourlyData called with selectedDate:', selectedDate); // Debug log
+        
+        const dayTests = this.data.filter(item => {
+            const itemDate = new Date(item.timestamp);
+            const itemDateISO = itemDate.getFullYear() + '-' + 
+                              String(itemDate.getMonth() + 1).padStart(2, '0') + '-' + 
+                              String(itemDate.getDate()).padStart(2, '0');
+            
+            const matches = itemDateISO === selectedDate;
+            if (matches) {
+                console.log('Found matching item for day-wise:', item.timestamp, 'matches', selectedDate); // Debug log
+            }
+            return matches;
+        });
+        
+        console.log('Found', dayTests.length, 'tests for day-wise date', selectedDate); // Debug log
+
+        const hourlyGroups = {};
+        
+        // Initialize all 24 hours
+        for (let i = 0; i < 24; i++) {
+            const hour = i.toString().padStart(2, '0');
+            hourlyGroups[hour] = {
+                hour,
+                downloads: [],
+                uploads: [],
+                latencies: [],
+                tests: [],
+                testCount: 0,
+                failedCount: 0
+            };
+        }
+
+        dayTests.forEach(item => {
+            const hour = new Date(item.timestamp).getHours().toString().padStart(2, '0');
+            
+            hourlyGroups[hour].tests.push(item);
+            hourlyGroups[hour].testCount++;
+
+            if (item.hasError) {
+                hourlyGroups[hour].failedCount++;
+            } else {
+                if (item.downloadSpeed !== null) hourlyGroups[hour].downloads.push(item.downloadSpeed);
+                if (item.uploadSpeed !== null) hourlyGroups[hour].uploads.push(item.uploadSpeed);
+                if (item.latency !== null) hourlyGroups[hour].latencies.push(item.latency);
+            }
+        });
+
+        return Object.values(hourlyGroups).map(group => ({
+            ...group,
+            avgDownload: group.downloads.length > 0 
+                ? group.downloads.reduce((a, b) => a + b, 0) / group.downloads.length 
+                : null,
+            avgUpload: group.uploads.length > 0 
+                ? group.uploads.reduce((a, b) => a + b, 0) / group.uploads.length 
+                : null,
+            avgLatency: group.latencies.length > 0 
+                ? group.latencies.reduce((a, b) => a + b, 0) / group.latencies.length 
+                : null,
+            peakDownload: group.downloads.length > 0 ? Math.max(...group.downloads) : null,
+            lowestDownload: group.downloads.length > 0 ? Math.min(...group.downloads) : null
+        })).filter(group => group.testCount > 0); // Only return hours with data
+    }
+
+    updateDayWiseStats(selectedDate, hourlyData) {
+        const allValidHours = hourlyData.filter(hour => hour.avgDownload !== null);
+        
+        if (allValidHours.length === 0) {
+            document.getElementById('dayWiseStats').style.display = 'none';
+            return;
+        }
+
+        const totalTests = hourlyData.reduce((sum, hour) => sum + hour.testCount, 0);
+        const totalFailedTests = hourlyData.reduce((sum, hour) => sum + hour.failedCount, 0);
+        
+        const dayAvgDownload = allValidHours.length > 0 
+            ? (allValidHours.reduce((sum, hour) => sum + hour.avgDownload, 0) / allValidHours.length).toFixed(2)
+            : '0';
+
+        // Find peak and slowest hours
+        const peakHour = allValidHours.reduce((max, hour) => 
+            hour.avgDownload > max.avgDownload ? hour : max, allValidHours[0]);
+        const slowestHour = allValidHours.reduce((min, hour) => 
+            hour.avgDownload < min.avgDownload ? hour : min, allValidHours[0]);
+
+        const allSpeeds = allValidHours.flatMap(hour => 
+            hour.downloads || []).filter(speed => speed !== null);
+        const speedRange = allSpeeds.length > 0 
+            ? `${Math.min(...allSpeeds).toFixed(1)} - ${Math.max(...allSpeeds).toFixed(1)}`
+            : 'N/A';
+
+        document.getElementById('dayWiseTestCount').textContent = `${totalTests} (${totalFailedTests} failed)`;
+        document.getElementById('dayWiseAvgDownload').textContent = dayAvgDownload + ' Mbps';
+        document.getElementById('dayWisePeakHour').textContent = 
+            `${peakHour.hour}:00 (${peakHour.avgDownload.toFixed(2)} Mbps)`;
+        document.getElementById('dayWiseSlowestHour').textContent = 
+            `${slowestHour.hour}:00 (${slowestHour.avgDownload.toFixed(2)} Mbps)`;
+        document.getElementById('dayWiseSpeedRange').textContent = speedRange + ' Mbps';
+        
+        // Show stats section
+        document.getElementById('dayWiseStats').style.display = 'block';
+    }
+
     showRecentTests() {
         const container = document.getElementById('recentTests');
         const recentData = this.filteredData.slice(-10).reverse(); // Last 10 tests
@@ -814,9 +1435,25 @@ function toggleView(viewType) {
     document.getElementById('dailyAnalysisCard').style.display = 'none';
     document.getElementById('performanceIssuesCard').style.display = 'none';
     document.getElementById('comparisonCard').style.display = 'none';
+    document.getElementById('dailyDetailCard').style.display = 'none';
     
     // Show selected analysis card
-    const cardId = viewType + (viewType === 'daily' ? 'Analysis' : viewType === 'performance' ? 'Issues' : '') + 'Card';
+    let cardId;
+    switch(viewType) {
+        case 'daily':
+            cardId = 'dailyAnalysisCard';
+            break;
+        case 'performance':
+            cardId = 'performanceIssuesCard';
+            break;
+        case 'comparison':
+            cardId = 'comparisonCard';
+            break;
+        case 'dailyDetail':
+            cardId = 'dailyDetailCard';
+            break;
+    }
+    
     document.getElementById(cardId).style.display = 'block';
     
     // Create the appropriate chart
@@ -830,6 +1467,9 @@ function toggleView(viewType) {
                 break;
             case 'comparison':
                 window.dashboard.createComparisonChart();
+                break;
+            case 'dailyDetail':
+                window.dashboard.createDailyDetailChart();
                 break;
         }
     }
@@ -845,6 +1485,117 @@ function updatePerformanceAnalysis() {
     if (window.dashboard) {
         window.dashboard.createPerformanceChart();
     }
+}
+
+function updateDailyDetailChart() {
+    const selectedDate = document.getElementById('dateSelect').value;
+    if (window.dashboard && selectedDate) {
+        window.dashboard.createDailyDetailChart(selectedDate);
+    }
+}
+
+function showTodayData() {
+    const today = new Date();
+    const todayISO = today.getFullYear() + '-' + 
+                   String(today.getMonth() + 1).padStart(2, '0') + '-' + 
+                   String(today.getDate()).padStart(2, '0');
+    
+    console.log('Looking for today:', todayISO); // Debug log
+    
+    const dateSelect = document.getElementById('dateSelect');
+    
+    console.log('Available options:', Array.from(dateSelect.options).map(opt => opt.value)); // Debug log
+    
+    // Find and select today's option
+    for (let option of dateSelect.options) {
+        console.log('Checking option:', option.value, 'against today:', todayISO); // Debug log
+        if (option.value === todayISO) {
+            dateSelect.value = todayISO;
+            updateDailyDetailChart();
+            return;
+        }
+    }
+    
+    // If today's data not found, show message
+    alert(`No data available for today (${todayISO})`);
+}
+
+function showYesterdayData() {
+    const yesterday = new Date();
+    yesterday.setDate(yesterday.getDate() - 1);
+    const yesterdayISO = yesterday.getFullYear() + '-' + 
+                        String(yesterday.getMonth() + 1).padStart(2, '0') + '-' + 
+                        String(yesterday.getDate()).padStart(2, '0');
+    
+    console.log('Looking for yesterday:', yesterdayISO); // Debug log
+    
+    const dateSelect = document.getElementById('dateSelect');
+    
+    // Find and select yesterday's option
+    for (let option of dateSelect.options) {
+        if (option.value === yesterdayISO) {
+            dateSelect.value = yesterdayISO;
+            updateDailyDetailChart();
+            return;
+        }
+    }
+    
+    // If yesterday's data not found, show message
+    alert(`No data available for yesterday (${yesterdayISO})`);
+}
+
+function updateDayWiseChart() {
+    const selectedDate = document.getElementById('dayAnalysisDateSelect').value;
+    if (window.dashboard) {
+        window.dashboard.createDayWiseChart(selectedDate);
+    }
+}
+
+function showTodayDayWise() {
+    const today = new Date();
+    const todayISO = today.getFullYear() + '-' + 
+                   String(today.getMonth() + 1).padStart(2, '0') + '-' + 
+                   String(today.getDate()).padStart(2, '0');
+    
+    console.log('Day-wise looking for today:', todayISO); // Debug log
+    
+    const dateSelect = document.getElementById('dayAnalysisDateSelect');
+    
+    // Find and select today's option
+    for (let option of dateSelect.options) {
+        if (option.value === todayISO) {
+            dateSelect.value = todayISO;
+            updateDayWiseChart();
+            return;
+        }
+    }
+    
+    // If today's data not found, show message
+    alert(`No data available for today (${todayISO})`);
+}
+
+function showYesterdayDayWise() {
+    const yesterday = new Date();
+    yesterday.setDate(yesterday.getDate() - 1);
+    const yesterdayISO = yesterday.getFullYear() + '-' + 
+                        String(yesterday.getMonth() + 1).padStart(2, '0') + '-' + 
+                        String(yesterday.getDate()).padStart(2, '0');
+    
+    console.log('Day-wise looking for yesterday:', yesterdayISO); // Debug log
+    
+    const dateSelect = document.getElementById('dayAnalysisDateSelect');
+    
+    // Find and select yesterday's option
+    for (let option of dateSelect.options) {
+        if (option.value === yesterdayISO) {
+            dateSelect.value = yesterdayISO;
+            updateDayWiseChart();
+            return;
+        }
+    }
+    
+    // If yesterday's data not found, show message
+    alert(`No data available for yesterday (${yesterdayISO})`);
 }
 
 // Initialize dashboard when DOM is loaded
