@@ -17,15 +17,52 @@ import {
   Analytics as AnalyticsIcon,
   Settings as SettingsIcon,
   Speed as SpeedIcon,
+  Timeline as TimelineIcon,
+  TrendingUp as TrendingIcon,
+  Compare as CompareIcon,
+  Wifi as RealtimeIcon,
 } from '@mui/icons-material'
 import { motion } from 'framer-motion'
 
 const drawerWidth = 240
 
 const menuItems = [
-  { path: '/', label: 'Dashboard', icon: <DashboardIcon /> },
-  { path: '/analytics', label: 'Analytics', icon: <AnalyticsIcon /> },
-  { path: '/settings', label: 'Settings', icon: <SettingsIcon /> },
+  { 
+    path: '/', 
+    label: 'Overview', 
+    icon: <DashboardIcon />,
+    description: 'Quick stats & recent tests'
+  },
+  { 
+    path: '/realtime', 
+    label: 'Real-time', 
+    icon: <RealtimeIcon />,
+    description: 'Live monitoring'
+  },
+  { 
+    path: '/analytics', 
+    label: 'Analytics', 
+    icon: <AnalyticsIcon />,
+    description: 'Detailed analysis'
+  },
+  { 
+    path: '/trends', 
+    label: 'Trends', 
+    icon: <TrendingIcon />,
+    description: 'Historical patterns'
+  },
+  { 
+    path: '/comparison', 
+    label: 'Comparison', 
+    icon: <CompareIcon />,
+    description: 'Time periods & ISP'
+  },
+  { 
+    path: '/settings', 
+    label: 'Settings', 
+    icon: <SettingsIcon />,
+    description: 'Preferences & config'
+  },
 ]
 
 const Sidebar = () => {
@@ -96,11 +133,17 @@ const Sidebar = () => {
                     {item.icon}
                   </ListItemIcon>
                   <ListItemText 
-                    primary={item.label} 
+                    primary={item.label}
+                    secondary={item.description}
                     sx={{ 
                       '& .MuiListItemText-primary': { 
                         color: 'white',
                         fontWeight: isActive ? 600 : 400,
+                        fontSize: '0.95rem',
+                      },
+                      '& .MuiListItemText-secondary': { 
+                        color: theme.palette.text.secondary,
+                        fontSize: '0.75rem',
                       } 
                     }} 
                   />

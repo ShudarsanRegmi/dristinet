@@ -1,4 +1,4 @@
-import React, { useState } from 'react'
+import React, { useState, useMemo } from 'react'
 import {
   Box,
   Grid,
@@ -6,9 +6,12 @@ import {
   Container,
   Card,
   CardContent,
-  ToggleButton,
-  ToggleButtonGroup,
-  Paper,
+  useTheme,
+  Chip,
+  FormControl,
+  InputLabel,
+  Select,
+  MenuItem,
 } from '@mui/material'
 import { 
   BarChart, 
@@ -21,267 +24,285 @@ import {
   PieChart,
   Pie,
   Cell,
+  LineChart,
+  Line,
+  ComposedChart
 } from 'recharts'
 import { motion } from 'framer-motion'
-import { format } from 'date-fns'
-import { useSpeedtestData, useDailyStats } from '../hooks/useSpeedtestData'
+import { useSpeedtestData } from '../hooks/useSpeedtestData'
 import SpeedChart from '../components/SpeedChart'
+import StatsCard from '../components/StatsCard'
+import { 
+  Analytics as AnalyticsIcon,
+  Speed as SpeedIcon,
+  Upload as UploadIcon,
+  NetworkCheck as LatencyIcon
+} from '@mui/icons-material'
 
 const Analytics = () => {
-  const { data } = useSpeedtestData()
-  const { dailyData } = useDailyStats()
-  const [chartType, setChartType] = useState('daily')
+  const theme = useTheme()
+  const { data, stats, loading, error } = useSpeedtestData()
+  const [viewMode, setViewMode] = useState('overview')
 
-  // Process data for different chart types
-  const processHourlyData = () => {
-    const hourlyStats = {}
+  // Comprehensive data analysis
+  const analyticsData = useMemo(() => {
+    if (!data || data.length === 0) return {}
+
+    const validTests = data.filter(test => !test.hasError && test.downloadSpeed != null)
     
-    data.forEach(test => {
-      if (test.hasError || !test.downloadSpeed) return
-      
+    // Hourly analysis
+    const hourlyStats = Array.from({ length: 24 }, (_, hour) => ({
+      hour: `${hour}:00`,
+      avgDownload: 0,
+      avgUpload: 0,
+      avgLatency: 0,
+      testCount: 0
+    }))
+    
+    validTests.forEach(test => {
       const hour = new Date(test.timestamp).getHours()
-      if (!hourlyStats[hour]) {
-        hourlyStats[hour] = { hour, speeds: [], count: 0 }
-      }
-      hourlyStats[hour].speeds.push(test.downloadSpeed)
-      hourlyStats[hour].count++
+      const stat = hourlyStats[hour]
+      stat.avgDownload += test.downloadSpeed
+      stat.avgUpload += test.uploadSpeed || 0
+      stat.avgLatency += test.latency || 0
+      stat.testCount++
     })
-    
-    return Object.values(hourlyStats).map(stat => ({
-      hour: stat.hour,
-      avgSpeed: stat.speeds.reduce((a, b) => a + b, 0) / stat.speeds.length,
-      testCount: stat.count,
-      label: `${stat.hour}:00`,
-    })).sort((a, b) => a.hour - b.hour)
-  }
 
-  const processSpeedDistribution = () => {
-    const ranges = [
-      { min: 0, max: 10, label: '0-10 Mbps', color: '#f44336' },
-      { min: 10, max: 25, label: '10-25 Mbps', color: '#ff9800' },
-      { min: 25, max: 50, label: '25-50 Mbps', color: '#ffeb3b' },
-      { min: 50, max: 100, label: '50-100 Mbps', color: '#8bc34a' },
-      { min: 100, max: Infinity, label: '100+ Mbps', color: '#4caf50' },
+    hourlyStats.forEach(stat => {
+      if (stat.testCount > 0) {
+        stat.avgDownload = stat.avgDownload / stat.testCount
+        stat.avgUpload = stat.avgUpload / stat.testCount
+        stat.avgLatency = stat.avgLatency / stat.testCount
+      }
+    })
+
+    // Speed distribution
+    const speedRanges = [
+      { range: '0-2', min: 0, max: 2, count: 0, color: '#E53E3E' },
+      { range: '2-5', min: 2, max: 5, count: 0, color: '#ED8936' },
+      { range: '5-8', min: 5, max: 8, count: 0, color: '#ECC94B' },
+      { range: '8-10', min: 8, max: 10, count: 0, color: '#48BB78' },
+      { range: '10+', min: 10, max: Infinity, count: 0, color: '#38A169' }
     ]
 
-    const distribution = ranges.map(range => ({
-      ...range,
-      count: data.filter(test => 
-        !test.hasError && 
-        test.downloadSpeed >= range.min && 
-        test.downloadSpeed < range.max
-      ).length
-    }))
+    validTests.forEach(test => {
+      speedRanges.forEach(range => {
+        if (test.downloadSpeed >= range.min && test.downloadSpeed < range.max) {
+          range.count++
+        }
+      })
+    })
 
-    return distribution.filter(d => d.count > 0)
+    return {
+      hourlyStats,
+      speedRanges,
+      totalTests: data.length,
+      validTests: validTests.length,
+      errorRate: ((data.length - validTests.length) / data.length * 100) || 0
+    }
+  }, [data])
+
+  if (loading) {
+    return (
+      <Container maxWidth="xl" sx={{ mt: 4, mb: 4 }}>
+        <Typography>Loading analytics...</Typography>
+      </Container>
+    )
   }
 
-  const hourlyData = processHourlyData()
-  const speedDistribution = processSpeedDistribution()
-
-  const chartData = chartType === 'daily' ? dailyData : 
-                   chartType === 'hourly' ? hourlyData : data.slice(-30)
+  if (error) {
+    return (
+      <Container maxWidth="xl" sx={{ mt: 4, mb: 4 }}>
+        <Typography color="error">Error loading data: {error}</Typography>
+      </Container>
+    )
+  }
 
   return (
     <Container maxWidth="xl" sx={{ mt: 4, mb: 4 }}>
-      {/* Header */}
       <motion.div
-        initial={{ opacity: 0, y: -20 }}
+        initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.5 }}
       >
+        {/* Header */}
         <Box sx={{ mb: 4 }}>
-          <Typography variant="h4" sx={{ fontWeight: 700 }}>
+          <Typography variant="h4" gutterBottom sx={{ fontWeight: 600 }}>
             Detailed Analytics
           </Typography>
-          <Typography variant="subtitle1" sx={{ color: 'text.secondary', mt: 1 }}>
-            Deep insights into your network performance patterns
-          </Typography>
-        </Box>
-      </motion.div>
-
-      {/* Chart Type Selector */}
-      <Box sx={{ mb: 3, display: 'flex', justifyContent: 'center' }}>
-        <ToggleButtonGroup
-          value={chartType}
-          exclusive
-          onChange={(_, newType) => newType && setChartType(newType)}
-        >
-          <ToggleButton value="daily">Daily Trends</ToggleButton>
-          <ToggleButton value="hourly">Hourly Pattern</ToggleButton>
-          <ToggleButton value="recent">Recent Activity</ToggleButton>
-        </ToggleButtonGroup>
-      </Box>
-
-      <Grid container spacing={3}>
-        {/* Main Chart */}
-        <Grid item xs={12} lg={8}>
-          {chartType === 'recent' ? (
-            <SpeedChart 
-              data={data.slice(-30)} 
-              title="Recent Speed Tests"
-              type="line"
+          <Box sx={{ display: 'flex', gap: 2, mb: 3, flexWrap: 'wrap', alignItems: 'center' }}>
+            <Chip icon={<AnalyticsIcon />} label="Advanced Insights" variant="outlined" />
+            <Chip 
+              label={`${analyticsData.validTests || 0} Valid Tests`} 
+              color="primary" 
+              variant="outlined" 
             />
-          ) : (
-            <motion.div
-              key={chartType}
-              initial={{ opacity: 0, scale: 0.9 }}
-              animate={{ opacity: 1, scale: 1 }}
-              transition={{ duration: 0.5 }}
-            >
-              <Card sx={{ height: 400 }}>
-                <CardContent>
-                  <Typography variant="h6" sx={{ mb: 2, fontWeight: 600 }}>
-                    {chartType === 'daily' ? 'Daily Average Speeds' : 'Hourly Performance Pattern'}
-                  </Typography>
-                  
-                  <Box sx={{ width: '100%', height: 320 }}>
-                    <ResponsiveContainer>
-                      <BarChart data={chartData}>
-                        <CartesianGrid strokeDasharray="3 3" />
-                        <XAxis 
-                          dataKey={chartType === 'daily' ? 'date' : 'label'}
-                          tickFormatter={chartType === 'daily' ? 
-                            (value) => format(new Date(value), 'MMM dd') : 
-                            undefined
-                          }
-                        />
-                        <YAxis label={{ value: 'Speed (Mbps)', angle: -90, position: 'insideLeft' }} />
-                        <Tooltip 
-                          formatter={(value) => [`${value.toFixed(2)} Mbps`, 'Average Speed']}
-                        />
-                        <Bar 
-                          dataKey={chartType === 'daily' ? 'avgDownload' : 'avgSpeed'}
-                          fill="#1976d2"
-                          radius={[4, 4, 0, 0]}
-                        />
-                      </BarChart>
-                    </ResponsiveContainer>
-                  </Box>
-                </CardContent>
-              </Card>
-            </motion.div>
-          )}
-        </Grid>
+            <Chip 
+              label={`${analyticsData.errorRate?.toFixed(1) || 0}% Error Rate`} 
+              color={analyticsData.errorRate > 5 ? "error" : "success"}
+              variant="outlined" 
+            />
+            
+            <FormControl size="small" sx={{ minWidth: 120 }}>
+              <InputLabel>View Mode</InputLabel>
+              <Select
+                value={viewMode}
+                label="View Mode"
+                onChange={(e) => setViewMode(e.target.value)}
+              >
+                <MenuItem value="overview">Overview</MenuItem>
+                <MenuItem value="performance">Performance</MenuItem>
+                <MenuItem value="patterns">Patterns</MenuItem>
+              </Select>
+            </FormControl>
+          </Box>
+        </Box>
 
-        {/* Speed Distribution */}
-        <Grid item xs={12} lg={4}>
-          <motion.div
-            initial={{ opacity: 0, x: 20 }}
-            animate={{ opacity: 1, x: 0 }}
-            transition={{ duration: 0.5, delay: 0.2 }}
-          >
-            <Card sx={{ height: 400 }}>
+        <Grid container spacing={3}>
+          {/* Overview Cards */}
+          {viewMode === 'overview' && (
+            <>
+              <Grid item xs={12} sm={6} md={3}>
+                <StatsCard
+                  title="Total Tests"
+                  value={analyticsData.totalTests || 0}
+                  icon={<AnalyticsIcon />}
+                  color="primary"
+                />
+              </Grid>
+              <Grid item xs={12} sm={6} md={3}>
+                <StatsCard
+                  title="Avg Download"
+                  value={stats?.avgDownloadSpeed?.toFixed(2) || '--'}
+                  unit="Mbps"
+                  icon={<SpeedIcon />}
+                  color="success"
+                />
+              </Grid>
+              <Grid item xs={12} sm={6} md={3}>
+                <StatsCard
+                  title="Avg Upload"
+                  value={stats?.avgUploadSpeed?.toFixed(2) || '--'}
+                  unit="Mbps"
+                  icon={<UploadIcon />}
+                  color="warning"
+                />
+              </Grid>
+              <Grid item xs={12} sm={6} md={3}>
+                <StatsCard
+                  title="Avg Latency"
+                  value={stats?.avgLatency?.toFixed(0) || '--'}
+                  unit="ms"
+                  icon={<LatencyIcon />}
+                  color="error"
+                />
+              </Grid>
+            </>
+          )}
+
+          {/* Hourly Performance Pattern */}
+          <Grid item xs={12} lg={8}>
+            <Card>
               <CardContent>
-                <Typography variant="h6" sx={{ mb: 2, fontWeight: 600 }}>
-                  Speed Distribution
+                <Typography variant="h6" gutterBottom>
+                  Hourly Performance Pattern
                 </Typography>
-                
-                <Box sx={{ width: '100%', height: 280 }}>
-                  <ResponsiveContainer>
-                    <PieChart>
-                      <Pie
-                        data={speedDistribution}
-                        cx="50%"
-                        cy="50%"
-                        innerRadius={60}
-                        outerRadius={100}
-                        paddingAngle={5}
-                        dataKey="count"
-                      >
-                        {speedDistribution.map((entry, index) => (
-                          <Cell key={`cell-${index}`} fill={entry.color} />
-                        ))}
-                      </Pie>
-                      <Tooltip formatter={(value) => [`${value} tests`, 'Count']} />
-                    </PieChart>
-                  </ResponsiveContainer>
-                </Box>
-                
-                <Box sx={{ mt: 2 }}>
-                  {speedDistribution.map((item, index) => (
-                    <Box key={index} sx={{ display: 'flex', alignItems: 'center', mb: 1 }}>
-                      <Box 
-                        sx={{ 
-                          width: 12, 
-                          height: 12, 
-                          bgcolor: item.color, 
-                          borderRadius: 1, 
-                          mr: 1 
-                        }} 
-                      />
-                      <Typography variant="caption">
-                        {item.label}: {item.count} tests
-                      </Typography>
-                    </Box>
-                  ))}
-                </Box>
+                <ResponsiveContainer width="100%" height={300}>
+                  <ComposedChart data={analyticsData.hourlyStats || []}>
+                    <CartesianGrid strokeDasharray="3 3" stroke={theme.palette.divider} />
+                    <XAxis 
+                      dataKey="hour" 
+                      stroke={theme.palette.text.secondary}
+                      fontSize={12}
+                    />
+                    <YAxis 
+                      yAxisId="speed"
+                      stroke={theme.palette.text.secondary}
+                      fontSize={12}
+                    />
+                    <YAxis 
+                      yAxisId="latency"
+                      orientation="right"
+                      stroke={theme.palette.text.secondary}
+                      fontSize={12}
+                    />
+                    <Tooltip 
+                      contentStyle={{
+                        backgroundColor: theme.palette.background.paper,
+                        border: `1px solid ${theme.palette.divider}`,
+                        borderRadius: '8px'
+                      }}
+                    />
+                    <Bar 
+                      yAxisId="speed"
+                      dataKey="avgDownload" 
+                      fill="#1565C0" 
+                      name="Avg Download (Mbps)"
+                      opacity={0.7}
+                    />
+                    <Line 
+                      yAxisId="latency"
+                      type="monotone" 
+                      dataKey="avgLatency" 
+                      stroke="#ED8936" 
+                      strokeWidth={2}
+                      name="Avg Latency (ms)"
+                    />
+                  </ComposedChart>
+                </ResponsiveContainer>
               </CardContent>
             </Card>
-          </motion.div>
-        </Grid>
+          </Grid>
 
-        {/* Performance Insights */}
-        <Grid item xs={12}>
-          <motion.div
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.5, delay: 0.4 }}
-          >
-            <Paper sx={{ p: 3 }}>
-              <Typography variant="h6" sx={{ mb: 2, fontWeight: 600 }}>
-                Performance Insights
-              </Typography>
-              
-              <Grid container spacing={2}>
-                <Grid item xs={12} md={4}>
-                  <Box>
-                    <Typography variant="subtitle2" color="text.secondary">
-                      Best Performance Time
-                    </Typography>
-                    <Typography variant="h6" sx={{ color: 'success.main' }}>
-                      {hourlyData.length > 0 ? 
-                        `${hourlyData.reduce((best, current) => 
-                          current.avgSpeed > best.avgSpeed ? current : best
-                        ).hour}:00` : 'N/A'
-                      }
-                    </Typography>
-                  </Box>
-                </Grid>
-                
-                <Grid item xs={12} md={4}>
-                  <Box>
-                    <Typography variant="subtitle2" color="text.secondary">
-                      Most Active Hour
-                    </Typography>
-                    <Typography variant="h6" sx={{ color: 'primary.main' }}>
-                      {hourlyData.length > 0 ?
-                        `${hourlyData.reduce((busiest, current) => 
-                          current.testCount > busiest.testCount ? current : busiest
-                        ).hour}:00` : 'N/A'
-                      }
-                    </Typography>
-                  </Box>
-                </Grid>
-                
-                <Grid item xs={12} md={4}>
-                  <Box>
-                    <Typography variant="subtitle2" color="text.secondary">
-                      Speed Consistency
-                    </Typography>
-                    <Typography variant="h6" sx={{ color: 'info.main' }}>
-                      {data.length > 0 ? (
-                        data.filter(t => !t.hasError).length / data.length > 0.9 ? 'Excellent' : 
-                        data.filter(t => !t.hasError).length / data.length > 0.7 ? 'Good' : 'Needs Attention'
-                      ) : 'N/A'}
-                    </Typography>
-                  </Box>
-                </Grid>
-              </Grid>
-            </Paper>
-          </motion.div>
+          {/* Speed Distribution */}
+          <Grid item xs={12} lg={4}>
+            <Card>
+              <CardContent>
+                <Typography variant="h6" gutterBottom>
+                  Speed Distribution
+                </Typography>
+                <ResponsiveContainer width="100%" height={300}>
+                  <PieChart>
+                    <Pie
+                      data={analyticsData.speedRanges || []}
+                      cx="50%"
+                      cy="50%"
+                      labelLine={false}
+                      label={({ range, percent }) => `${range} Mbps (${(percent * 100).toFixed(0)}%)`}
+                      outerRadius={80}
+                      fill="#8884d8"
+                      dataKey="count"
+                    >
+                      {(analyticsData.speedRanges || []).map((entry, index) => (
+                        <Cell key={`cell-${index}`} fill={entry.color} />
+                      ))}
+                    </Pie>
+                    <Tooltip />
+                  </PieChart>
+                </ResponsiveContainer>
+              </CardContent>
+            </Card>
+          </Grid>
+
+          {/* Recent Activity Chart */}
+          {viewMode === 'overview' && (
+            <Grid item xs={12}>
+              <Card>
+                <CardContent>
+                  <Typography variant="h6" gutterBottom>
+                    Recent Activity (Last 50 Tests)
+                  </Typography>
+                  <SpeedChart 
+                    data={(data || []).slice(-50)} 
+                    title=""
+                    type="area"
+                  />
+                </CardContent>
+              </Card>
+            </Grid>
+          )}
         </Grid>
-      </Grid>
+      </motion.div>
     </Container>
   )
 }
