@@ -295,7 +295,7 @@ const Analytics = () => {
                   <SpeedChart 
                     data={(data || []).slice(-50)} 
                     title=""
-                    type="area"
+                    type="points"
                   />
                 </CardContent>
               </Card>
