@@ -27,6 +27,12 @@ import {
   Timeline as AreaIcon,
   MoreVert as MoreIcon,
   Fullscreen as FullscreenIcon,
+  ZoomIn as ZoomIcon,
+  RestartAlt as ResetIcon,
+  GetApp as ExportIcon,
+  PanTool as PanIcon,
+  Visibility as VisibilityIcon,
+  VisibilityOff as VisibilityOffIcon,
   DateRange as DateRangeIcon
 } from '@mui/icons-material'
 
@@ -195,43 +201,6 @@ const SpeedChart = ({ data, title, type = 'points' }) => {
     return traces
   }
 
-  // Add subtle reference lines only when relevant
-  const addReferenceLines = (traces) => {
-    const yAxisConfig = getOptimalYAxisRange()
-    const referenceLines = []
-    
-    // Only add benchmark lines if they're within the visible range and useful
-    const speedBenchmarks = [
-      { speed: 25, label: 'HD Streaming', color: 'rgba(255, 193, 7, 0.3)' },
-      { speed: 100, label: 'High-Speed', color: 'rgba(76, 175, 80, 0.3)' }
-    ]
-    
-    speedBenchmarks.forEach(benchmark => {
-      // Only show benchmark if it's within our data range + some buffer
-      if (chartData.x.length > 0 && 
-          benchmark.speed >= yAxisConfig.range[0] && 
-          benchmark.speed <= yAxisConfig.range[1] &&
-          benchmark.speed > Math.max(...chartData.downloadSpeed, ...chartData.uploadSpeed) * 0.5) {
-        referenceLines.push({
-          type: 'scatter',
-          mode: 'lines',
-          x: [chartData.x[0], chartData.x[chartData.x.length - 1]],
-          y: [benchmark.speed, benchmark.speed],
-          line: {
-            color: benchmark.color,
-            width: 1,
-            dash: 'dot'
-          },
-          name: benchmark.label,
-          showlegend: false,
-          hovertemplate: `${benchmark.label}<extra></extra>`
-        })
-      }
-    })
-    
-    return [...traces, ...referenceLines]
-  }
-
   const handleChartTypeChange = (event, newType) => {
     if (newType !== null) {
       setChartType(newType)
@@ -276,55 +245,36 @@ const SpeedChart = ({ data, title, type = 'points' }) => {
     }
   }
 
-  // Calculate intelligent Y-axis range for better data visualization
-  const getOptimalYAxisRange = () => {
-    if (!chartData.rawData || chartData.rawData.length === 0) {
-      return { range: [0, 10], dtick: 1 }
-    }
-
-    // Get all speed values (both download and upload)
-    const allSpeeds = []
-    if (showDownload) {
-      allSpeeds.push(...chartData.downloadSpeed.filter(speed => speed > 0))
-    }
-    if (showUpload) {
-      allSpeeds.push(...chartData.uploadSpeed.filter(speed => speed > 0))
-    }
-
-    if (allSpeeds.length === 0) {
-      return { range: [0, 10], dtick: 1 }
-    }
-
-    const minSpeed = Math.min(...allSpeeds)
-    const maxSpeed = Math.max(...allSpeeds)
-    const speedRange = maxSpeed - minSpeed
-
-    // Calculate intelligent scaling
-    let yMin, yMax, dtick
-
-    if (speedRange < 2) {
-      // Small variation (like 9±1): Show detailed scale
-      yMin = Math.max(0, Math.floor(minSpeed - 1))
-      yMax = Math.ceil(maxSpeed + 2)
-      dtick = 0.5 // Show half-unit increments
-    } else if (speedRange < 10) {
-      // Medium variation: Show unit increments
-      yMin = Math.max(0, Math.floor(minSpeed - 1))
-      yMax = Math.ceil(maxSpeed + 3)
-      dtick = 1
-    } else if (speedRange < 50) {
-      // Large variation: Show 5-unit increments
-      yMin = Math.max(0, Math.floor(minSpeed / 5) * 5 - 5)
-      yMax = Math.ceil((maxSpeed + 10) / 5) * 5
-      dtick = 5
-    } else {
-      // Very large variation: Show 10-unit increments
-      yMin = Math.max(0, Math.floor(minSpeed / 10) * 10 - 10)
-      yMax = Math.ceil((maxSpeed + 20) / 10) * 10
-      dtick = 10
-    }
-
-    return { range: [yMin, yMax], dtick }
+  // Add reference lines for common speed thresholds
+  const addReferenceLines = (traces) => {
+    const referenceLines = []
+    
+    // Add reference lines for common internet speed benchmarks
+    const speedBenchmarks = [
+      { speed: 25, label: 'HD Streaming (25 Mbps)', color: 'rgba(255, 193, 7, 0.6)' },
+      { speed: 100, label: 'High-Speed (100 Mbps)', color: 'rgba(76, 175, 80, 0.6)' }
+    ]
+    
+    speedBenchmarks.forEach(benchmark => {
+      if (chartData.x.length > 0) {
+        referenceLines.push({
+          type: 'scatter',
+          mode: 'lines',
+          x: [chartData.x[0], chartData.x[chartData.x.length - 1]],
+          y: [benchmark.speed, benchmark.speed],
+          line: {
+            color: benchmark.color,
+            width: 1,
+            dash: 'dash'
+          },
+          name: benchmark.label,
+          showlegend: false,
+          hovertemplate: `${benchmark.label}<extra></extra>`
+        })
+      }
+    })
+    
+    return [...traces, ...referenceLines]
   }
 
   // Plotly layout configuration with normal scaling
@@ -350,23 +300,17 @@ const SpeedChart = ({ data, title, type = 'points' }) => {
       showticklabels: true,
       tickangle: -45
     },
-    yaxis: (() => {
-      const yAxisConfig = getOptimalYAxisRange()
-      return {
-        title: 'Speed (Mbps)',
-        gridcolor: theme.palette.mode === 'dark' ? 'rgba(255,255,255,0.1)' : 'rgba(0,0,0,0.1)',
-        tickfont: { color: theme.palette.text.secondary },
-        titlefont: { color: theme.palette.text.primary },
-        range: yAxisConfig.range,
-        dtick: yAxisConfig.dtick,
-        tick0: yAxisConfig.range[0],
-        tickmode: 'linear',
-        showgrid: true,
-        zeroline: yAxisConfig.range[0] === 0,
-        zerolinecolor: theme.palette.mode === 'dark' ? 'rgba(255,255,255,0.3)' : 'rgba(0,0,0,0.3)',
-        zerolinewidth: 2
-      }
-    })(),
+    yaxis: {
+      title: 'Speed (Mbps)',
+      gridcolor: theme.palette.mode === 'dark' ? 'rgba(255,255,255,0.1)' : 'rgba(0,0,0,0.1)',
+      tickfont: { color: theme.palette.text.secondary },
+      titlefont: { color: theme.palette.text.primary },
+      rangemode: 'tozero', // Force scale to start from 0
+      range: [0, null], // Start from 0, let max be automatic
+      zeroline: true,
+      zerolinecolor: theme.palette.mode === 'dark' ? 'rgba(255,255,255,0.3)' : 'rgba(0,0,0,0.3)',
+      zerolinewidth: 2
+    },
     plot_bgcolor: 'transparent',
     paper_bgcolor: 'transparent',
     margin: { l: 60, r: 30, t: 30, b: 80 },
@@ -379,6 +323,24 @@ const SpeedChart = ({ data, title, type = 'points' }) => {
     displayModeBar: true,
     displaylogo: false,
     modeBarButtonsToRemove: ['pan2d', 'lasso2d'],
+    modeBarButtonsToAdd: [
+      {
+        name: 'Export PNG',
+        icon: {
+          width: 857.1,
+          height: 1000,
+          path: 'M214.3 285.7v428.6h428.6v-428.6h-428.6z M214.3 142.9h428.6c78.8 0 142.8 64 142.8 142.8v428.6c0 78.8-64 142.8-142.8 142.8h-428.6c-78.8 0-142.8-64-142.8-142.8v-428.6c0-78.8 64-142.8 142.8-142.8z'
+        },
+        click: function(gd) {
+          window.Plotly.downloadImage(gd, {
+            format: 'png',
+            width: 1200,
+            height: 600,
+            filename: `speedtest-chart-${new Date().toISOString().split('T')[0]}`
+          })
+        }
+      }
+    ],
     responsive: true
   }
 
@@ -587,18 +549,17 @@ const SpeedChart = ({ data, title, type = 'points' }) => {
                 label={`${selectedPoints.length} selected`}
                 size="small"
                 variant="filled"
-                color="info"
+                color="warning"
                 onDelete={() => setSelectedPoints([])}
               />
             )}
             <Typography variant="caption" color="text.secondary" sx={{ ml: 'auto' }}>
-              🔍 Drag to zoom • Double-click to reset • Y-axis auto-scaled for optimal data insight
+              � Drag to zoom • Double-click to reset • Click toolbar for more options
             </Typography>
           </Box>
           
           <Box sx={{ flex: 1, width: '100%' }}>
             <Plot
-              key={`${showDownload}-${showUpload}-${timeRange}`} // Force re-render when visibility changes
               data={addReferenceLines(createTraces())}
               layout={{
                 ...layout,
