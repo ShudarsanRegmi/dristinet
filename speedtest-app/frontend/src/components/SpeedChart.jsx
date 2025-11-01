@@ -1,20 +1,5 @@
-import React, { useState } from 'react'
-import { 
-  LineChart, 
-  Line, 
-  XAxis, 
-  YAxis, 
-  CartesianGrid, 
-  Tooltip, 
-  ResponsiveContainer,
-  AreaChart,
-  Area,
-  ScatterChart,
-  Scatter,
-  ZAxis,
-  Brush,
-  ReferenceLine
-} from 'recharts'
+import React, { useState, useMemo } from 'react'
+import Plot from 'react-plotly.js'
 import { 
   Card, 
   CardContent, 
@@ -37,7 +22,9 @@ import {
   MoreVert as MoreIcon,
   Fullscreen as FullscreenIcon,
   ZoomIn as ZoomIcon,
-  RestartAlt as ResetIcon
+  RestartAlt as ResetIcon,
+  GetApp as ExportIcon,
+  PanTool as PanIcon
 } from '@mui/icons-material'
 
 const SpeedChart = ({ data, title, type = 'points' }) => {
@@ -45,79 +32,126 @@ const SpeedChart = ({ data, title, type = 'points' }) => {
   const [chartType, setChartType] = useState(type || 'points')
   const [anchorEl, setAnchorEl] = useState(null)
   const [isFullscreen, setIsFullscreen] = useState(false)
-  const [zoomDomain, setZoomDomain] = useState({ left: 'dataMin', right: 'dataMax' })
-  const [selectedPoint, setSelectedPoint] = useState(null)
+  const [selectedPoints, setSelectedPoints] = useState([])
 
-  const formatData = (rawData) => {
-    return rawData.map((item, index) => ({
-      ...item,
-      timestamp: new Date(item.timestamp).getTime(),
-      formattedDate: format(new Date(item.timestamp), 'MMM dd HH:mm'),
-      id: index,
-    }))
-  }
-
-  const chartData = formatData(data)
-
-  const CustomTooltip = ({ active, payload, label }) => {
-    if (active && payload && payload.length) {
-      const dataPoint = payload[0]?.payload
-      return (
-        <Card 
-          sx={{ 
-            p: 2, 
-            minWidth: 250,
-            maxWidth: 350,
-            boxShadow: 3,
-            border: '1px solid',
-            borderColor: 'divider',
-            bgcolor: 'background.paper'
-          }}
-        >
-          <Typography variant="subtitle2" sx={{ fontWeight: 600, mb: 1.5, color: 'primary.main' }}>
-            Speed Test Details
-          </Typography>
-          
-          <Box sx={{ mb: 1.5 }}>
-            <Typography variant="body2" color="text.secondary">
-              {format(new Date(label), 'MMM dd, yyyy HH:mm:ss')}
-            </Typography>
-          </Box>
-
-          {payload.map((entry, index) => (
-            <Box key={index} sx={{ display: 'flex', alignItems: 'center', gap: 1.5, mb: 1 }}>
-              <Box
-                sx={{
-                  width: 10,
-                  height: 10,
-                  borderRadius: '50%',
-                  bgcolor: entry.color,
-                  flexShrink: 0,
-                }}
-              />
-              <Typography variant="body2" sx={{ fontWeight: 500 }}>
-                <Box component="span" sx={{ color: 'text.secondary' }}>{entry.name}:</Box>
-                <Box component="span" sx={{ ml: 0.5, fontWeight: 600 }}>
-                  {entry.value?.toFixed(2)} Mbps
-                </Box>
-              </Typography>
-            </Box>
-          ))}
-          
-          {dataPoint && (
-            <Box sx={{ mt: 2, pt: 1.5, borderTop: '1px solid', borderColor: 'divider' }}>
-              <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mb: 0.5 }}>
-                <strong>Server:</strong> {dataPoint.server || 'Unknown'}
-              </Typography>
-              <Typography variant="caption" color="text.secondary" sx={{ display: 'block' }}>
-                <strong>Ping:</strong> {dataPoint.ping ? `${dataPoint.ping} ms` : 'N/A'}
-              </Typography>
-            </Box>
-          )}
-        </Card>
-      )
+  // Process data for Plotly
+  const chartData = useMemo(() => {
+    if (!data || data.length === 0) return { x: [], downloadSpeed: [], uploadSpeed: [], timestamps: [] }
+    
+    const validData = data.filter(item => !item.hasError && item.downloadSpeed)
+    
+    return {
+      x: validData.map(item => new Date(item.timestamp)),
+      downloadSpeed: validData.map(item => item.downloadSpeed || 0),
+      uploadSpeed: validData.map(item => item.uploadSpeed || 0),
+      timestamps: validData.map(item => item.timestamp),
+      servers: validData.map(item => item.server || 'Unknown'),
+      latency: validData.map(item => item.latency || 0),
+      rawData: validData
     }
-    return null
+  }, [data])
+
+  // Create Plotly traces based on chart type
+  const createTraces = () => {
+    const baseTrace = {
+      x: chartData.x,
+      hovertemplate: 
+        '<b>%{text}</b><br>' +
+        'Time: %{x}<br>' +
+        'Speed: %{y:.2f} Mbps<br>' +
+        'Server: %{customdata[0]}<br>' +
+        'Latency: %{customdata[1]} ms<br>' +
+        '<extra></extra>',
+      customdata: chartData.rawData.map(item => [item.server || 'Unknown', item.latency || 'N/A'])
+    }
+
+    switch (chartType) {
+      case 'points':
+        return [
+          {
+            ...baseTrace,
+            y: chartData.downloadSpeed,
+            type: 'scattergl',
+            mode: 'markers',
+            name: 'Download Speed',
+            text: chartData.rawData.map(item => `Download: ${item.downloadSpeed?.toFixed(2)} Mbps`),
+            marker: {
+              color: theme.palette.primary.main,
+              size: 8,
+              opacity: 0.8,
+              line: { width: 1, color: theme.palette.primary.dark }
+            }
+          },
+          {
+            ...baseTrace,
+            y: chartData.uploadSpeed,
+            type: 'scattergl',
+            mode: 'markers',
+            name: 'Upload Speed',
+            text: chartData.rawData.map(item => `Upload: ${item.uploadSpeed?.toFixed(2)} Mbps`),
+            marker: {
+              color: theme.palette.success.main,
+              size: 8,
+              opacity: 0.8,
+              symbol: 'triangle-up',
+              line: { width: 1, color: theme.palette.success.dark }
+            }
+          }
+        ]
+      
+      case 'line':
+        return [
+          {
+            ...baseTrace,
+            y: chartData.downloadSpeed,
+            type: 'scattergl',
+            mode: 'lines+markers',
+            name: 'Download Speed',
+            text: chartData.rawData.map(item => `Download: ${item.downloadSpeed?.toFixed(2)} Mbps`),
+            line: { color: theme.palette.primary.main, width: 2 },
+            marker: { color: theme.palette.primary.main, size: 6 }
+          },
+          {
+            ...baseTrace,
+            y: chartData.uploadSpeed,
+            type: 'scattergl',
+            mode: 'lines+markers',
+            name: 'Upload Speed',
+            text: chartData.rawData.map(item => `Upload: ${item.uploadSpeed?.toFixed(2)} Mbps`),
+            line: { color: theme.palette.success.main, width: 2 },
+            marker: { color: theme.palette.success.main, size: 6 }
+          }
+        ]
+      
+      case 'area':
+        return [
+          {
+            ...baseTrace,
+            y: chartData.downloadSpeed,
+            type: 'scatter',
+            mode: 'lines',
+            name: 'Download Speed',
+            text: chartData.rawData.map(item => `Download: ${item.downloadSpeed?.toFixed(2)} Mbps`),
+            fill: 'tonexty',
+            fillcolor: `${theme.palette.primary.main}20`,
+            line: { color: theme.palette.primary.main, width: 2 }
+          },
+          {
+            ...baseTrace,
+            y: chartData.uploadSpeed,
+            type: 'scatter',
+            mode: 'lines',
+            name: 'Upload Speed',
+            text: chartData.rawData.map(item => `Upload: ${item.uploadSpeed?.toFixed(2)} Mbps`),
+            fill: 'tozeroy',
+            fillcolor: `${theme.palette.success.main}20`,
+            line: { color: theme.palette.success.main, width: 2 }
+          }
+        ]
+      
+      default:
+        return createTraces()
+    }
   }
 
   const handleChartTypeChange = (event, newType) => {
@@ -139,165 +173,86 @@ const SpeedChart = ({ data, title, type = 'points' }) => {
     setAnchorEl(null)
   }
 
-  const handleZoom = (domain) => {
-    if (domain) {
-      setZoomDomain({
-        left: domain.left || 'dataMin',
-        right: domain.right || 'dataMax'
-      })
+  const handlePlotlyEvent = (eventData) => {
+    if (eventData.points) {
+      setSelectedPoints(eventData.points.map(point => ({
+        x: point.x,
+        y: point.y,
+        pointIndex: point.pointIndex,
+        curveNumber: point.curveNumber
+      })))
     }
   }
 
-  const resetZoom = () => {
-    setZoomDomain({ left: 'dataMin', right: 'dataMax' })
-    setAnchorEl(null)
+  // Plotly layout configuration
+  const layout = {
+    title: false,
+    showlegend: true,
+    legend: {
+      orientation: 'h',
+      y: -0.1,
+      x: 0.5,
+      xanchor: 'center',
+      font: { color: theme.palette.text.primary }
+    },
+    xaxis: {
+      type: 'date',
+      title: 'Time',
+      gridcolor: theme.palette.mode === 'dark' ? 'rgba(255,255,255,0.1)' : 'rgba(0,0,0,0.1)',
+      tickfont: { color: theme.palette.text.secondary },
+      titlefont: { color: theme.palette.text.primary }
+    },
+    yaxis: {
+      title: 'Speed (Mbps)',
+      gridcolor: theme.palette.mode === 'dark' ? 'rgba(255,255,255,0.1)' : 'rgba(0,0,0,0.1)',
+      tickfont: { color: theme.palette.text.secondary },
+      titlefont: { color: theme.palette.text.primary }
+    },
+    plot_bgcolor: 'transparent',
+    paper_bgcolor: 'transparent',
+    margin: { l: 60, r: 30, t: 30, b: 80 },
+    dragmode: 'zoom',
+    hovermode: 'closest'
   }
 
-  const handlePointClick = (data) => {
-    setSelectedPoint(selectedPoint?.id === data.id ? null : data)
+  // Plotly configuration
+  const config = {
+    displayModeBar: true,
+    displaylogo: false,
+    modeBarButtonsToRemove: ['pan2d', 'lasso2d'],
+    modeBarButtonsToAdd: [
+      {
+        name: 'Export PNG',
+        icon: {
+          width: 857.1,
+          height: 1000,
+          path: 'M214.3 285.7v428.6h428.6v-428.6h-428.6z M214.3 142.9h428.6c78.8 0 142.8 64 142.8 142.8v428.6c0 78.8-64 142.8-142.8 142.8h-428.6c-78.8 0-142.8-64-142.8-142.8v-428.6c0-78.8 64-142.8 142.8-142.8z'
+        },
+        click: function(gd) {
+          window.Plotly.downloadImage(gd, {
+            format: 'png',
+            width: 1200,
+            height: 600,
+            filename: `speedtest-chart-${new Date().toISOString().split('T')[0]}`
+          })
+        }
+      }
+    ],
+    responsive: true
   }
 
-  const renderChart = () => {
-    const commonProps = {
-      data: chartData,
-      margin: { top: 20, right: 30, left: 20, bottom: 20 }
-    }
-
-    const commonElements = (
-      <>
-        <defs>
-          <linearGradient id="downloadGradient" x1="0" y1="0" x2="0" y2="1">
-            <stop offset="5%" stopColor={theme.palette.primary.main} stopOpacity={0.3}/>
-            <stop offset="95%" stopColor={theme.palette.primary.main} stopOpacity={0.05}/>
-          </linearGradient>
-          <linearGradient id="uploadGradient" x1="0" y1="0" x2="0" y2="1">
-            <stop offset="5%" stopColor={theme.palette.success.main} stopOpacity={0.3}/>
-            <stop offset="95%" stopColor={theme.palette.success.main} stopOpacity={0.05}/>
-          </linearGradient>
-        </defs>
-        <CartesianGrid strokeDasharray="3 3" stroke="rgba(255, 255, 255, 0.1)" />
-        <XAxis 
-          dataKey="timestamp"
-          type="number"
-          scale="time"
-          domain={[zoomDomain.left, zoomDomain.right]}
-          tickFormatter={(value) => format(new Date(value), 'HH:mm')}
-          stroke={theme.palette.text.secondary}
-          fontSize={12}
-          allowDataOverflow={true}
-        />
-        <YAxis 
-          stroke={theme.palette.text.secondary}
-          label={{ value: 'Speed (Mbps)', angle: -90, position: 'insideLeft' }}
-          fontSize={12}
-          allowDataOverflow={true}
-        />
-        <Tooltip content={<CustomTooltip />} />
-        <Brush
-          dataKey="timestamp"
-          height={30}
-          stroke={theme.palette.primary.main}
-          onChange={handleZoom}
-          tickFormatter={(value) => format(new Date(value), 'HH:mm')}
-        />
-      </>
+  if (!data || data.length === 0) {
+    return (
+      <Card>
+        <CardContent>
+          <Typography>No data available</Typography>
+        </CardContent>
+      </Card>
     )
-
-    switch (chartType) {
-      case 'points':
-        return (
-          <ScatterChart {...commonProps}>
-            {commonElements}
-            {selectedPoint && (
-              <>
-                <ReferenceLine 
-                  x={selectedPoint.timestamp} 
-                  stroke={theme.palette.warning.main}
-                  strokeDasharray="5 5"
-                  strokeWidth={2}
-                />
-                <ReferenceLine 
-                  y={selectedPoint.downloadSpeed} 
-                  stroke={theme.palette.primary.main}
-                  strokeDasharray="3 3"
-                  strokeWidth={1}
-                />
-              </>
-            )}
-            <Scatter
-              dataKey="downloadSpeed"
-              fill={theme.palette.primary.main}
-              name="Download"
-              shape="circle"
-              onClick={handlePointClick}
-              style={{ cursor: 'pointer' }}
-            />
-            <Scatter
-              dataKey="uploadSpeed"
-              fill={theme.palette.success.main}
-              name="Upload"
-              shape="triangle"
-              onClick={handlePointClick}
-              style={{ cursor: 'pointer' }}
-            />
-          </ScatterChart>
-        )
-      
-      case 'line':
-        return (
-          <LineChart {...commonProps}>
-            {commonElements}
-            <Line
-              type="monotone"
-              dataKey="downloadSpeed"
-              stroke={theme.palette.primary.main}
-              strokeWidth={2}
-              dot={{ r: 4, strokeWidth: 0 }}
-              activeDot={{ r: 6, strokeWidth: 0 }}
-              name="Download"
-            />
-            <Line
-              type="monotone"
-              dataKey="uploadSpeed"
-              stroke={theme.palette.success.main}
-              strokeWidth={2}
-              dot={{ r: 4, strokeWidth: 0 }}
-              activeDot={{ r: 6, strokeWidth: 0 }}
-              name="Upload"
-            />
-          </LineChart>
-        )
-      
-      case 'area':
-        return (
-          <AreaChart {...commonProps}>
-            {commonElements}
-            <Area
-              type="monotone"
-              dataKey="downloadSpeed"
-              stroke={theme.palette.primary.main}
-              strokeWidth={2}
-              fill="url(#downloadGradient)"
-              name="Download"
-            />
-            <Area
-              type="monotone"
-              dataKey="uploadSpeed"
-              stroke={theme.palette.success.main}
-              strokeWidth={2}
-              fill="url(#uploadGradient)"
-              name="Upload"
-            />
-          </AreaChart>
-        )
-      
-      default:
-        return renderChart()
-    }
   }
 
-  const cardHeight = isFullscreen ? '80vh' : 600
-  const chartHeight = isFullscreen ? 'calc(80vh - 140px)' : 480
+  const cardHeight = isFullscreen ? '90vh' : 650
+  const plotHeight = isFullscreen ? '85vh' : 520
 
   return (
     <motion.div
@@ -306,15 +261,15 @@ const SpeedChart = ({ data, title, type = 'points' }) => {
       transition={{ duration: 0.5 }}
       style={{
         position: isFullscreen ? 'fixed' : 'static',
-        top: isFullscreen ? '10vh' : 'auto',
-        left: isFullscreen ? '10vw' : 'auto',
-        width: isFullscreen ? '80vw' : '100%',
-        height: isFullscreen ? '80vh' : 'auto',
+        top: isFullscreen ? '5vh' : 'auto',
+        left: isFullscreen ? '5vw' : 'auto',
+        width: isFullscreen ? '90vw' : '100%',
+        height: isFullscreen ? '90vh' : 'auto',
         zIndex: isFullscreen ? 1300 : 'auto',
       }}
     >
       <Card sx={{ height: cardHeight, bgcolor: 'background.paper' }}>
-        <CardContent>
+        <CardContent sx={{ height: '100%', display: 'flex', flexDirection: 'column' }}>
           <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 2 }}>
             <Typography variant="h6" sx={{ fontWeight: 600 }}>
               {title}
@@ -374,10 +329,6 @@ const SpeedChart = ({ data, title, type = 'points' }) => {
                   <FullscreenIcon sx={{ mr: 1 }} />
                   {isFullscreen ? 'Exit Fullscreen' : 'Fullscreen'}
                 </MenuItem>
-                <MenuItem onClick={resetZoom}>
-                  <ResetIcon sx={{ mr: 1 }} />
-                  Reset Zoom
-                </MenuItem>
               </Menu>
             </Box>
           </Box>
@@ -402,29 +353,39 @@ const SpeedChart = ({ data, title, type = 'points' }) => {
               variant="outlined"
             />
             <Chip
-              label={`${chartData.length} data points`}
+              label={`${chartData.rawData.length} tests`}
               size="small"
               variant="outlined"
               color="secondary"
             />
-            {selectedPoint && (
+            {selectedPoints.length > 0 && (
               <Chip
-                label={`Selected: ${format(new Date(selectedPoint.timestamp), 'HH:mm')} - ${selectedPoint.downloadSpeed?.toFixed(1)} Mbps`}
+                label={`${selectedPoints.length} selected`}
                 size="small"
                 variant="filled"
                 color="warning"
-                onDelete={() => setSelectedPoint(null)}
+                onDelete={() => setSelectedPoints([])}
               />
             )}
             <Typography variant="caption" color="text.secondary" sx={{ ml: 'auto' }}>
-              💡 Use brush below chart to zoom • Click points for details
+              � Drag to zoom • Double-click to reset • Click toolbar for more options
             </Typography>
           </Box>
           
-          <Box sx={{ width: '100%', height: chartHeight }}>
-            <ResponsiveContainer>
-              {renderChart()}
-            </ResponsiveContainer>
+          <Box sx={{ flex: 1, width: '100%' }}>
+            <Plot
+              data={createTraces()}
+              layout={{
+                ...layout,
+                height: plotHeight,
+                font: { color: theme.palette.text.primary }
+              }}
+              config={config}
+              onClick={handlePlotlyEvent}
+              onSelected={handlePlotlyEvent}
+              style={{ width: '100%', height: plotHeight }}
+              useResizeHandler
+            />
           </Box>
         </CardContent>
       </Card>
