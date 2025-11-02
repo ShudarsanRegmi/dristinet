@@ -32,6 +32,7 @@ import {
   Scatter
 } from 'recharts'
 import { useSpeedtestData } from '../hooks/useSpeedtestData'
+import LoadingSpinner from '../components/LoadingSpinner'
 import { 
   TrendingUp as TrendingUpIcon,
   TrendingDown as TrendingDownIcon,
@@ -151,17 +152,15 @@ const Trends = () => {
   const COLORS = ['#1565C0', '#48BB78', '#ED8936', '#E53E3E']
 
   if (loading) {
-    return (
-      <Container maxWidth="xl" sx={{ mt: 4, mb: 4 }}>
-        <Typography>Loading trend analysis...</Typography>
-      </Container>
-    )
+    return <LoadingSpinner message="Analyzing Network Trends..." variant="analytics" size="medium" />
   }
 
   if (error) {
     return (
       <Container maxWidth="xl" sx={{ mt: 4, mb: 4 }}>
-        <Typography color="error">Error loading data: {error}</Typography>
+        <Box display="flex" justifyContent="center" alignItems="center" minHeight="50vh">
+          <Typography color="error" variant="h6">Error loading data: {error}</Typography>
+        </Box>
       </Container>
     )
   }

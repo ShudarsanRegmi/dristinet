@@ -32,6 +32,7 @@ import { motion } from 'framer-motion'
 import { useSpeedtestData } from '../hooks/useSpeedtestData'
 import SpeedChart from '../components/SpeedChart'
 import StatsCard from '../components/StatsCard'
+import LoadingSpinner from '../components/LoadingSpinner'
 import { 
   Analytics as AnalyticsIcon,
   Speed as SpeedIcon,
@@ -103,17 +104,15 @@ const Analytics = () => {
   }, [data])
 
   if (loading) {
-    return (
-      <Container maxWidth="xl" sx={{ mt: 4, mb: 4 }}>
-        <Typography>Loading analytics...</Typography>
-      </Container>
-    )
+    return <LoadingSpinner message="Loading Analytics Data..." variant="analytics" size="medium" />
   }
 
   if (error) {
     return (
       <Container maxWidth="xl" sx={{ mt: 4, mb: 4 }}>
-        <Typography color="error">Error loading data: {error}</Typography>
+        <Box display="flex" justifyContent="center" alignItems="center" minHeight="50vh">
+          <Typography color="error" variant="h6">Error loading data: {error}</Typography>
+        </Box>
       </Container>
     )
   }

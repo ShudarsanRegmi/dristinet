@@ -17,6 +17,7 @@ import {
 import { motion } from 'framer-motion'
 import StatsCard from '../components/StatsCard'
 import SpeedChart from '../components/SpeedChart'
+import LoadingSpinner from '../components/LoadingSpinner'
 import { useSpeedtestData, useSpeedtestStats } from '../hooks/useSpeedtestData'
 
 const Dashboard = () => {
@@ -24,13 +25,7 @@ const Dashboard = () => {
   const { stats, loading: statsLoading, error: statsError } = useSpeedtestStats()
 
   if (dataLoading || statsLoading) {
-    return (
-      <Container maxWidth="xl" sx={{ mt: 4 }}>
-        <Box display="flex" justifyContent="center" alignItems="center" minHeight="50vh">
-          <CircularProgress />
-        </Box>
-      </Container>
-    )
+    return <LoadingSpinner message="Loading Dashboard..." variant="primary" size="medium" />
   }
 
   if (dataError || statsError) {

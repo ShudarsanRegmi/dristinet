@@ -24,6 +24,7 @@ import {
 } from 'recharts'
 import { useSpeedtestData } from '../hooks/useSpeedtestData'
 import StatsCard from '../components/StatsCard'
+import LoadingSpinner from '../components/LoadingSpinner'
 import { 
   Speed as SpeedIcon,
   Upload as UploadIcon,
@@ -65,17 +66,15 @@ const Realtime = () => {
   const latestTest = getLatestTest()
 
   if (loading) {
-    return (
-      <Container maxWidth="xl" sx={{ mt: 4, mb: 4 }}>
-        <Typography>Loading real-time data...</Typography>
-      </Container>
-    )
+    return <LoadingSpinner message="Loading Real-time Data..." variant="speedtest" size="medium" />
   }
 
   if (error) {
     return (
       <Container maxWidth="xl" sx={{ mt: 4, mb: 4 }}>
-        <Typography color="error">Error loading data: {error}</Typography>
+        <Box display="flex" justifyContent="center" alignItems="center" minHeight="50vh">
+          <Typography color="error" variant="h6">Error loading data: {error}</Typography>
+        </Box>
       </Container>
     )
   }

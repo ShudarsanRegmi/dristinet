@@ -31,6 +31,7 @@ import { motion } from 'framer-motion'
 import { format, parseISO, isValid } from 'date-fns'
 import StatsCard from '../components/StatsCard'
 import SpeedChart from '../components/SpeedChart'
+import LoadingSpinner from '../components/LoadingSpinner'
 import { useSpeedtestData } from '../hooks/useSpeedtestData'
 
 const DayWise = () => {
@@ -189,11 +190,7 @@ const DayWise = () => {
   }, [hourlyAnalysis])
 
   if (loading) {
-    return (
-      <Container maxWidth="xl" sx={{ mt: 4, display: 'flex', justifyContent: 'center' }}>
-        <CircularProgress size={60} />
-      </Container>
-    )
+    return <LoadingSpinner message="Loading Day-wise Analysis..." variant="analytics" size="medium" />
   }
 
   if (error) {
