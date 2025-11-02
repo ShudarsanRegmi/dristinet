@@ -48,6 +48,12 @@ const menuItems = [
     description: 'Detailed analysis'
   },
   { 
+    path: '/daywise', 
+    label: 'Day-wise Analysis', 
+    icon: <TimelineIcon />,
+    description: 'Daily statistics & patterns'
+  },
+  { 
     path: '/trends', 
     label: 'Trends', 
     icon: <TrendingIcon />,

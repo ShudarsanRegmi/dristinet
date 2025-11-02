@@ -30,7 +30,7 @@ import {
   DateRange as DateRangeIcon
 } from '@mui/icons-material'
 
-const SpeedChart = ({ data, title, type = 'points' }) => {
+const SpeedChart = ({ data, title, type = 'points', showTimeRange = true, isDayView = false }) => {
   const theme = useTheme()
   const [chartType, setChartType] = useState(type || 'points')
   const [anchorEl, setAnchorEl] = useState(null)
@@ -337,15 +337,21 @@ const SpeedChart = ({ data, title, type = 'points' }) => {
       gridcolor: theme.palette.mode === 'dark' ? 'rgba(255,255,255,0.1)' : 'rgba(0,0,0,0.1)',
       tickfont: { color: theme.palette.text.secondary, size: 11 },
       titlefont: { color: theme.palette.text.primary },
-      tickmode: timeRange === '24h' ? 'linear' : 'auto',
-      dtick: timeRange === '24h' ? 30 * 60 * 1000 : null, // 30 minutes in milliseconds
-      nticks: timeRange === '24h' ? null : 8,
-      tickformat: '%b %d : %H:%M',
+      tickmode: isDayView || timeRange === '24h' ? 'linear' : 'auto',
+      dtick: isDayView ? 60 * 60 * 1000 : timeRange === '24h' ? 30 * 60 * 1000 : null, // For day view: 1 hour, for 24h: 30 minutes
+      nticks: isDayView ? null : timeRange === '24h' ? null : 8,
+      tickformat: isDayView ? '%H:%M' : '%b %d : %H:%M',
       showticklabels: true,
-      tickangle: -45,
+      tickangle: isDayView ? 0 : -45,
       ticklen: 8,
       tickwidth: 1,
-      tickcolor: theme.palette.text.disabled
+      tickcolor: theme.palette.text.disabled,
+      showgrid: true,
+      minor: isDayView ? {
+        dtick: 30 * 60 * 1000, // 30-minute minor ticks for day view
+        gridcolor: theme.palette.mode === 'dark' ? 'rgba(255,255,255,0.05)' : 'rgba(0,0,0,0.05)',
+        showgrid: true
+      } : undefined
     },
     yaxis: (() => {
       const yAxisConfig = getOptimalYAxisRange()
@@ -410,7 +416,7 @@ const SpeedChart = ({ data, title, type = 'points' }) => {
         <CardContent sx={{ height: '100%', display: 'flex', flexDirection: 'column' }}>
           <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 2 }}>
             <Typography variant="h6" sx={{ fontWeight: 600 }}>
-              {title} - {getTimeRangeLabel()}
+              {title}{showTimeRange ? ` - ${getTimeRangeLabel()}` : ''}
             </Typography>
             
             <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
@@ -482,23 +488,27 @@ const SpeedChart = ({ data, title, type = 'points' }) => {
             bgcolor: 'action.hover',
             borderRadius: 1
           }}>
-            {/* Time Range Selector */}
-            <FormControl size="small" sx={{ minWidth: 140 }}>
-              <InputLabel>Time Range</InputLabel>
-              <Select
-                value={timeRange}
-                label="Time Range"
-                onChange={handleTimeRangeChange}
-                startAdornment={<DateRangeIcon sx={{ mr: 1, fontSize: 'small' }} />}
-              >
-                <MenuItem value="all">All Time</MenuItem>
-                <MenuItem value="24h">Last 24 Hours</MenuItem>
-                <MenuItem value="1week">Last Week</MenuItem>
-                <MenuItem value="30days">Last 30 Days</MenuItem>
-              </Select>
-            </FormControl>
+            {/* Time Range Selector - only show if showTimeRange is true */}
+            {showTimeRange && (
+              <>
+                <FormControl size="small" sx={{ minWidth: 140 }}>
+                  <InputLabel>Time Range</InputLabel>
+                  <Select
+                    value={timeRange}
+                    label="Time Range"
+                    onChange={handleTimeRangeChange}
+                    startAdornment={<DateRangeIcon sx={{ mr: 1, fontSize: 'small' }} />}
+                  >
+                    <MenuItem value="all">All Time</MenuItem>
+                    <MenuItem value="24h">Last 24 Hours</MenuItem>
+                    <MenuItem value="1week">Last Week</MenuItem>
+                    <MenuItem value="30days">Last 30 Days</MenuItem>
+                  </Select>
+                </FormControl>
 
-            <Divider orientation="vertical" flexItem />
+                <Divider orientation="vertical" flexItem />
+              </>
+            )}
 
             {/* Visibility Controls */}
             <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>

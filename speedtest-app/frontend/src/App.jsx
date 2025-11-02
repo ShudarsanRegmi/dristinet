@@ -6,6 +6,7 @@ import Sidebar from './components/Sidebar'
 import Dashboard from './pages/Dashboard'
 import Realtime from './pages/Realtime'
 import Analytics from './pages/Analytics'
+import DayWise from './pages/DayWise'
 import Trends from './pages/Trends'
 import Comparison from './pages/Comparison'
 import Settings from './pages/Settings'
@@ -78,6 +79,7 @@ function App() {
             <Route path="/" element={<Dashboard />} />
             <Route path="/realtime" element={<Realtime />} />
             <Route path="/analytics" element={<Analytics />} />
+            <Route path="/daywise" element={<DayWise />} />
             <Route path="/trends" element={<Trends />} />
             <Route path="/comparison" element={<Comparison />} />
             <Route path="/settings" element={<Settings />} />
