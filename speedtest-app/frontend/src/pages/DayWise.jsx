@@ -247,6 +247,8 @@ const DayWise = () => {
         </Box>
       </motion.div>
 
+
+
       {selectedDate && dayStats && (
         <>
           {/* Day Overview Stats */}

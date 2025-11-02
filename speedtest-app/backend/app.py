@@ -96,8 +96,24 @@ def parse_entry(entry):
                     result['jitter'] = float(jitter_match.group(1))
             except:
                 result['jitter'] = None
+        elif 'Wi-Fi Name:' in line:
+            result['wifiName'] = line.split('Wi-Fi Name:')[1].strip()
         elif 'WiFi Name:' in line:
             result['wifiName'] = line.split('WiFi Name:')[1].strip()
+        elif 'Interface:' in line:
+            result['interface'] = line.split('Interface:')[1].strip()
+        elif 'Connection Type:' in line:
+            # Fallback for interface detection
+            conn_type = line.split('Connection Type:')[1].strip()
+            if not result.get('interface'):
+                result['interface'] = conn_type
+    
+    # Set default interface if not found
+    if 'interface' not in result:
+        if result.get('wifiName'):
+            result['interface'] = 'WiFi'
+        else:
+            result['interface'] = 'Ethernet'
     
     # Check for errors
     result['hasError'] = result.get('downloadSpeed') is None
@@ -264,6 +280,136 @@ def get_daily_stats():
     return jsonify({
         'success': True,
         'data': result
+    })
+
+@app.route('/api/filters/networks')
+def get_available_networks():
+    """Get all unique WiFi networks (SSIDs) from speedtest data"""
+    file_paths = [
+        os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), '.speedtest_res.txt'),
+        '/home/aparichit/.speedtest_res.txt',
+        os.path.expanduser('~/.speedtest_res.txt')
+    ]
+    
+    file_path = None
+    for path in file_paths:
+        if os.path.exists(path):
+            file_path = path
+            break
+    
+    if not file_path:
+        return jsonify({
+            'success': False,
+            'error': 'Speedtest data file not found',
+            'networks': []
+        })
+    
+    data = parse_speedtest_file(file_path)
+    
+    # Extract unique networks
+    networks = set()
+    for test in data:
+        wifi_name = test.get('wifiName')
+        if wifi_name and wifi_name.strip():
+            networks.add(wifi_name.strip())
+    
+    # Sort networks alphabetically
+    sorted_networks = sorted(list(networks))
+    
+    return jsonify({
+        'success': True,
+        'networks': sorted_networks,
+        'count': len(sorted_networks)
+    })
+
+@app.route('/api/filters/interfaces')
+def get_available_interfaces():
+    """Get all unique network interfaces from speedtest data"""
+    file_paths = [
+        os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), '.speedtest_res.txt'),
+        '/home/aparichit/.speedtest_res.txt',
+        os.path.expanduser('~/.speedtest_res.txt')
+    ]
+    
+    file_path = None
+    for path in file_paths:
+        if os.path.exists(path):
+            file_path = path
+            break
+    
+    if not file_path:
+        return jsonify({
+            'success': False,
+            'error': 'Speedtest data file not found',
+            'interfaces': []
+        })
+    
+    data = parse_speedtest_file(file_path)
+    
+    # Extract unique interfaces (we'll need to add interface parsing to parse_entry)
+    interfaces = set()
+    for test in data:
+        interface = test.get('interface', 'Unknown')
+        if interface and interface.strip():
+            interfaces.add(interface.strip())
+    
+    # Sort interfaces alphabetically
+    sorted_interfaces = sorted(list(interfaces))
+    
+    return jsonify({
+        'success': True,
+        'interfaces': sorted_interfaces,
+        'count': len(sorted_interfaces)
+    })
+
+@app.route('/api/speedtest-data-filtered')
+def get_filtered_speedtest_data():
+    """Get speedtest data with network and interface filters"""
+    # Get query parameters
+    network_filter = request.args.get('network', None)  # SSID filter
+    interface_filter = request.args.get('interface', None)  # Interface filter
+    
+    file_paths = [
+        os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), '.speedtest_res.txt'),
+        '/home/aparichit/.speedtest_res.txt',
+        os.path.expanduser('~/.speedtest_res.txt')
+    ]
+    
+    file_path = None
+    for path in file_paths:
+        if os.path.exists(path):
+            file_path = path
+            break
+    
+    if not file_path:
+        return jsonify({
+            'success': False,
+            'error': 'Speedtest data file not found',
+            'data': [],
+            'total': 0
+        })
+    
+    data = parse_speedtest_file(file_path)
+    
+    # Apply filters
+    filtered_data = data
+    
+    if network_filter and network_filter != 'all':
+        filtered_data = [test for test in filtered_data 
+                        if test.get('wifiName', '').strip() == network_filter]
+    
+    if interface_filter and interface_filter != 'all':
+        filtered_data = [test for test in filtered_data 
+                        if test.get('interface', 'Unknown').strip() == interface_filter]
+    
+    return jsonify({
+        'success': True,
+        'data': filtered_data,
+        'total': len(filtered_data),
+        'filters_applied': {
+            'network': network_filter,
+            'interface': interface_filter
+        }
     })
 
 @app.route('/api/speedtest-run', methods=['POST'])

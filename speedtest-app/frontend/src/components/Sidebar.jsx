@@ -1,5 +1,11 @@
-import React from 'react'
+import React, { useState, useEffect } from 'react'
 import { useLocation, useNavigate } from 'react-router-dom'
+import { 
+  setGlobalNetworkFilter, 
+  setGlobalInterfaceFilter, 
+  resetGlobalFilters, 
+  getGlobalFilters 
+} from '../hooks/useSpeedtestData'
 import {
   Drawer,
   List,
@@ -12,6 +18,11 @@ import {
   Divider,
   useTheme,
   IconButton,
+  FormControl,
+  Select,
+  MenuItem,
+  Chip,
+  Collapse,
 } from '@mui/material'
 import {
   Dashboard as DashboardIcon,
@@ -24,6 +35,12 @@ import {
   Wifi as RealtimeIcon,
   ChevronLeft as ChevronLeftIcon,
   PlayArrow as RunTestIcon,
+  FilterList as FilterIcon,
+  Router as InterfaceIcon,
+  Wifi as WifiIcon,
+  ExpandMore as ExpandMoreIcon,
+  ExpandLess as ExpandLessIcon,
+  Clear as ClearIcon,
 } from '@mui/icons-material'
 import { motion } from 'framer-motion'
 
@@ -84,6 +101,61 @@ const Sidebar = ({ open = true, onToggle }) => {
   const theme = useTheme()
   const location = useLocation()
   const navigate = useNavigate()
+  const [filtersExpanded, setFiltersExpanded] = useState(false)
+
+  const [networks, setNetworks] = useState([])
+  const [interfaces, setInterfaces] = useState([])
+  const [networkFilter, setNetworkFilter] = useState('all')
+  const [interfaceFilter, setInterfaceFilter] = useState('all')
+
+  // Initialize filters from localStorage and fetch filter options
+  useEffect(() => {
+    const currentFilters = getGlobalFilters()
+    setNetworkFilter(currentFilters.network)
+    setInterfaceFilter(currentFilters.interface)
+
+    const fetchFilterOptions = async () => {
+      try {
+        const [networksRes, interfacesRes] = await Promise.all([
+          fetch('/api/filters/networks'),
+          fetch('/api/filters/interfaces')
+        ])
+
+        const networksData = await networksRes.json()
+        const interfacesData = await interfacesRes.json()
+
+        if (networksData.success) {
+          setNetworks(networksData.networks)
+        }
+
+        if (interfacesData.success) {
+          setInterfaces(interfacesData.interfaces)
+        }
+      } catch (err) {
+        console.error('Failed to fetch filter options:', err)
+      }
+    }
+
+    fetchFilterOptions()
+  }, [])
+
+  const hasActiveFilters = networkFilter !== 'all' || interfaceFilter !== 'all'
+
+  const handleNetworkFilterChange = (value) => {
+    setNetworkFilter(value)
+    setGlobalNetworkFilter(value)
+  }
+
+  const handleInterfaceFilterChange = (value) => {
+    setInterfaceFilter(value)
+    setGlobalInterfaceFilter(value)
+  }
+
+  const handleResetFilters = () => {
+    setNetworkFilter('all')
+    setInterfaceFilter('all')
+    resetGlobalFilters()
+  }
 
   return (
     <Drawer
@@ -188,6 +260,198 @@ const Sidebar = ({ open = true, onToggle }) => {
       </List>
       
       <Box sx={{ flexGrow: 1 }} />
+      
+      {/* Global Filters Section */}
+      <Box sx={{ px: 1, pb: 2, borderTop: '1px solid rgba(255,255,255,0.2)' }}>
+        <ListItemButton
+          onClick={() => setFiltersExpanded(!filtersExpanded)}
+          sx={{
+            borderRadius: 2,
+            mb: 1,
+            backgroundColor: hasActiveFilters ? 'rgba(255,255,255,0.1)' : 'transparent',
+            '&:hover': {
+              backgroundColor: 'rgba(255,255,255,0.05)',
+            },
+          }}
+        >
+          <ListItemIcon sx={{ color: 'white', minWidth: 40 }}>
+            <FilterIcon />
+          </ListItemIcon>
+          <ListItemText 
+            primary="Filters"
+            secondary={hasActiveFilters ? `${networkFilter !== 'all' ? 1 : 0 + interfaceFilter !== 'all' ? 1 : 0} active` : 'Global data filters'}
+            sx={{ 
+              '& .MuiListItemText-primary': { 
+                color: 'white',
+                fontWeight: hasActiveFilters ? 600 : 400,
+                fontSize: '0.95rem',
+              },
+              '& .MuiListItemText-secondary': { 
+                color: theme.palette.text.secondary,
+                fontSize: '0.75rem',
+              } 
+            }} 
+          />
+          {filtersExpanded ? <ExpandLessIcon sx={{ color: 'white' }} /> : <ExpandMoreIcon sx={{ color: 'white' }} />}
+        </ListItemButton>
+
+        <Collapse in={filtersExpanded}>
+          <Box sx={{ pl: 1, pr: 1, pb: 1 }}>
+            {/* Network Filter */}
+            <Box sx={{ mb: 2 }}>
+              <Typography variant="caption" sx={{ color: 'rgba(255,255,255,0.7)', mb: 1, display: 'block' }}>
+                WiFi Network
+              </Typography>
+              <FormControl fullWidth size="small">
+                <Select
+                  value={networkFilter}
+                  onChange={(e) => handleNetworkFilterChange(e.target.value)}
+                  displayEmpty
+                  sx={{
+                    color: 'white',
+                    '& .MuiOutlinedInput-notchedOutline': {
+                      borderColor: 'rgba(255,255,255,0.3)',
+                    },
+                    '&:hover .MuiOutlinedInput-notchedOutline': {
+                      borderColor: 'rgba(255,255,255,0.5)',
+                    },
+                    '&.Mui-focused .MuiOutlinedInput-notchedOutline': {
+                      borderColor: theme.palette.primary.main,
+                    },
+                    '& .MuiSelect-icon': {
+                      color: 'white',
+                    },
+                  }}
+                  MenuProps={{
+                    PaperProps: {
+                      sx: {
+                        bgcolor: theme.palette.background.paper,
+                        maxHeight: 200,
+                      },
+                    },
+                  }}
+                >
+                  <MenuItem value="all">
+                    <Box sx={{ display: 'flex', alignItems: 'center' }}>
+                      <WifiIcon sx={{ mr: 1, fontSize: 'small' }} />
+                      All Networks
+                    </Box>
+                  </MenuItem>
+                  {networks.map(network => (
+                    <MenuItem key={network} value={network}>
+                      <Box sx={{ display: 'flex', alignItems: 'center' }}>
+                        <WifiIcon sx={{ mr: 1, fontSize: 'small' }} />
+                        {network}
+                      </Box>
+                    </MenuItem>
+                  ))}
+                </Select>
+              </FormControl>
+            </Box>
+
+            {/* Interface Filter */}
+            <Box sx={{ mb: 2 }}>
+              <Typography variant="caption" sx={{ color: 'rgba(255,255,255,0.7)', mb: 1, display: 'block' }}>
+                Interface Type
+              </Typography>
+              <FormControl fullWidth size="small">
+                <Select
+                  value={interfaceFilter}
+                  onChange={(e) => handleInterfaceFilterChange(e.target.value)}
+                  displayEmpty
+                  sx={{
+                    color: 'white',
+                    '& .MuiOutlinedInput-notchedOutline': {
+                      borderColor: 'rgba(255,255,255,0.3)',
+                    },
+                    '&:hover .MuiOutlinedInput-notchedOutline': {
+                      borderColor: 'rgba(255,255,255,0.5)',
+                    },
+                    '&.Mui-focused .MuiOutlinedInput-notchedOutline': {
+                      borderColor: theme.palette.primary.main,
+                    },
+                    '& .MuiSelect-icon': {
+                      color: 'white',
+                    },
+                  }}
+                  MenuProps={{
+                    PaperProps: {
+                      sx: {
+                        bgcolor: theme.palette.background.paper,
+                        maxHeight: 200,
+                      },
+                    },
+                  }}
+                >
+                  <MenuItem value="all">
+                    <Box sx={{ display: 'flex', alignItems: 'center' }}>
+                      <InterfaceIcon sx={{ mr: 1, fontSize: 'small' }} />
+                      All Interfaces
+                    </Box>
+                  </MenuItem>
+                  {interfaces.map(iface => (
+                    <MenuItem key={iface} value={iface}>
+                      <Box sx={{ display: 'flex', alignItems: 'center' }}>
+                        <InterfaceIcon sx={{ mr: 1, fontSize: 'small' }} />
+                        {iface}
+                      </Box>
+                    </MenuItem>
+                  ))}
+                </Select>
+              </FormControl>
+            </Box>
+
+            {/* Active Filters & Reset */}
+            {hasActiveFilters && (
+              <Box sx={{ mb: 1 }}>
+                <Box sx={{ display: 'flex', gap: 0.5, mb: 1, flexWrap: 'wrap' }}>
+                  {networkFilter !== 'all' && (
+                    <Chip
+                      label={networkFilter}
+                      size="small"
+                      onDelete={() => handleNetworkFilterChange('all')}
+                      sx={{
+                        bgcolor: 'primary.main',
+                        color: 'primary.contrastText',
+                        fontSize: '0.7rem',
+                        height: 20,
+                      }}
+                    />
+                  )}
+                  {interfaceFilter !== 'all' && (
+                    <Chip
+                      label={interfaceFilter}
+                      size="small"
+                      onDelete={() => handleInterfaceFilterChange('all')}
+                      sx={{
+                        bgcolor: 'secondary.main',
+                        color: 'secondary.contrastText',
+                        fontSize: '0.7rem',
+                        height: 20,
+                      }}
+                    />
+                  )}
+                </Box>
+                <Box sx={{ textAlign: 'center' }}>
+                  <IconButton
+                    size="small"
+                    onClick={handleResetFilters}
+                    sx={{
+                      color: 'rgba(255,255,255,0.7)',
+                      '&:hover': {
+                        color: 'white',
+                        bgcolor: 'rgba(255,255,255,0.1)',
+                      },
+                    }}
+                  >
+                    <ClearIcon fontSize="small" />
+                  </IconButton>
+                </Box>
+              </Box>
+            )}
+          </Box>
+        </Collapse>
+      </Box>
       
       <Box sx={{ p: 2, borderTop: '1px solid rgba(255,255,255,0.2)' }}>
         <Typography variant="caption" sx={{ color: 'rgba(255,255,255,0.7)' }}>

@@ -25,8 +25,10 @@ const Dashboard = () => {
 
   if (dataLoading || statsLoading) {
     return (
-      <Container maxWidth="xl" sx={{ mt: 4, display: 'flex', justifyContent: 'center' }}>
-        <CircularProgress size={60} />
+      <Container maxWidth="xl" sx={{ mt: 4 }}>
+        <Box display="flex" justifyContent="center" alignItems="center" minHeight="50vh">
+          <CircularProgress />
+        </Box>
       </Container>
     )
   }
