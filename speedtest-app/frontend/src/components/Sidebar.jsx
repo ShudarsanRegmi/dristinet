@@ -11,6 +11,7 @@ import {
   Box,
   Divider,
   useTheme,
+  IconButton,
 } from '@mui/material'
 import {
   Dashboard as DashboardIcon,
@@ -21,6 +22,7 @@ import {
   TrendingUp as TrendingIcon,
   Compare as CompareIcon,
   Wifi as RealtimeIcon,
+  ChevronLeft as ChevronLeftIcon,
 } from '@mui/icons-material'
 import { motion } from 'framer-motion'
 
@@ -65,14 +67,15 @@ const menuItems = [
   },
 ]
 
-const Sidebar = () => {
+const Sidebar = ({ open = true, onToggle }) => {
   const theme = useTheme()
   const location = useLocation()
   const navigate = useNavigate()
 
   return (
     <Drawer
-      variant="permanent"
+      variant="persistent"
+      open={open}
       sx={{
         width: drawerWidth,
         flexShrink: 0,
@@ -82,6 +85,7 @@ const Sidebar = () => {
           backgroundColor: theme.palette.background.paper,
           borderRight: '1px solid rgba(255, 255, 255, 0.05)',
           color: 'white',
+          position: 'relative',
         },
       }}
     >
@@ -91,15 +95,31 @@ const Sidebar = () => {
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.5 }}
         >
-          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-            <SpeedIcon sx={{ fontSize: 32, color: 'white' }} />
-            <Typography variant="h6" sx={{ fontWeight: 600, color: 'white' }}>
-              Network Monitor
-            </Typography>
+          <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+              <SpeedIcon sx={{ fontSize: 32, color: 'white' }} />
+              <Box>
+                <Typography variant="h6" sx={{ fontWeight: 600, color: 'white' }}>
+                  Network Monitor
+                </Typography>
+                <Typography variant="caption" sx={{ color: theme.palette.text.secondary }}>
+                  Performance Analytics
+                </Typography>
+              </Box>
+            </Box>
+            {onToggle && (
+              <IconButton 
+                onClick={onToggle}
+                size="small"
+                sx={{ 
+                  color: 'white',
+                  '&:hover': { bgcolor: 'rgba(255,255,255,0.1)' }
+                }}
+              >
+                <ChevronLeftIcon />
+              </IconButton>
+            )}
           </Box>
-          <Typography variant="caption" sx={{ color: theme.palette.text.secondary, mt: 0.5 }}>
-            Performance Analytics
-          </Typography>
         </motion.div>
       </Box>
       

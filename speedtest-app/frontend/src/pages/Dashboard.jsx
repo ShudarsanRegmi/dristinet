@@ -45,18 +45,15 @@ const Dashboard = () => {
   const recentData = data.filter(item => !item.hasError && item.downloadSpeed)
 
   return (
-    <Container maxWidth="xl" sx={{ mt: 4, mb: 4 }}>
-      {/* Header */}
+    <Container maxWidth="xl" sx={{ mt: 2, mb: 4 }}>
+      {/* Subtitle */}
       <motion.div
         initial={{ opacity: 0, y: -20 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.5 }}
       >
-        <Box sx={{ mb: 4 }}>
-          <Typography variant="h4" sx={{ fontWeight: 700, color: 'text.primary' }}>
-            Network Performance Dashboard
-          </Typography>
-          <Typography variant="subtitle1" sx={{ color: 'text.secondary', mt: 1 }}>
+        <Box sx={{ mb: 3 }}>
+          <Typography variant="subtitle1" sx={{ color: 'text.secondary' }}>
             Real-time insights into your internet connectivity
           </Typography>
         </Box>
