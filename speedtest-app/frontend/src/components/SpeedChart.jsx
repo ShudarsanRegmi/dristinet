@@ -277,7 +277,7 @@ const SpeedChart = ({ data, title, type = 'points' }) => {
     }
   }
 
-  // Calculate intelligent Y-axis range for better data visualization
+  // Calculate optimal Y-axis range focused on actual data
   const getOptimalYAxisRange = () => {
     if (!chartData.rawData || chartData.rawData.length === 0) {
       return { range: [0, 10], dtick: 1 }
@@ -298,31 +298,23 @@ const SpeedChart = ({ data, title, type = 'points' }) => {
 
     const minSpeed = Math.min(...allSpeeds)
     const maxSpeed = Math.max(...allSpeeds)
-    const speedRange = maxSpeed - minSpeed
 
-    // Calculate intelligent scaling
-    let yMin, yMax, dtick
+    // Always use 1 Mbps increments for better readability
+    const dtick = 1
 
-    if (speedRange < 2) {
-      // Small variation (like 9±1): Show detailed scale
-      yMin = Math.max(0, Math.floor(minSpeed - 1))
-      yMax = Math.ceil(maxSpeed + 2)
-      dtick = 0.5 // Show half-unit increments
-    } else if (speedRange < 10) {
-      // Medium variation: Show unit increments
-      yMin = Math.max(0, Math.floor(minSpeed - 1))
-      yMax = Math.ceil(maxSpeed + 3)
-      dtick = 1
-    } else if (speedRange < 50) {
-      // Large variation: Show 5-unit increments
-      yMin = Math.max(0, Math.floor(minSpeed / 5) * 5 - 5)
-      yMax = Math.ceil((maxSpeed + 10) / 5) * 5
-      dtick = 5
-    } else {
-      // Very large variation: Show 10-unit increments
-      yMin = Math.max(0, Math.floor(minSpeed / 10) * 10 - 10)
-      yMax = Math.ceil((maxSpeed + 20) / 10) * 10
-      dtick = 10
+    // Set Y-axis minimum: start from 0 or 1-2 units below minimum speed
+    let yMin = 0
+    if (minSpeed > 3) {
+      // If all speeds are well above 0, start the axis closer to the data
+      yMin = Math.max(0, Math.floor(minSpeed) - 2)
+    }
+
+    // Set Y-axis maximum: just 2-3 units above the maximum speed for tight scaling
+    let yMax = Math.ceil(maxSpeed) + 2
+
+    // Ensure we have at least a 5-unit range for readability
+    if (yMax - yMin < 5) {
+      yMax = yMin + 5
     }
 
     return { range: [yMin, yMax], dtick }
