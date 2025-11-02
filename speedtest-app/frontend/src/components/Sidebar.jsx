@@ -44,7 +44,7 @@ import {
 } from '@mui/icons-material'
 import { motion } from 'framer-motion'
 
-const drawerWidth = 240
+const drawerWidth = 280
 
 const menuItems = [
   { 
@@ -174,6 +174,7 @@ const Sidebar = ({ open = true, onToggle }) => {
           height: '100vh',
           display: 'flex',
           flexDirection: 'column',
+          overflowY: 'hidden', // Prevent main drawer from scrolling
         },
       }}
     >
@@ -213,71 +214,102 @@ const Sidebar = ({ open = true, onToggle }) => {
       
       <Divider sx={{ borderColor: 'rgba(255,255,255,0.2)', mx: 1 }} />
       
-      <List sx={{ mt: 1 }}>
-        {menuItems.map((item, index) => {
-          const isActive = location.pathname === item.path
-          
-          return (
-            <motion.div
-              key={item.path}
-              initial={{ opacity: 0, x: -20 }}
-              animate={{ opacity: 1, x: 0 }}
-              transition={{ duration: 0.3, delay: index * 0.1 }}
-            >
-              <ListItem disablePadding sx={{ px: 1 }}>
-                <ListItemButton
-                  onClick={() => navigate(item.path)}
-                  sx={{
-                    borderRadius: 2,
-                    mb: 0.5,
-                    backgroundColor: isActive ? 'rgba(255,255,255,0.2)' : 'transparent',
-                    '&:hover': {
-                      backgroundColor: 'rgba(255,255,255,0.1)',
-                    },
-                    transition: 'all 0.2s ease-in-out',
-                  }}
-                >
-                  <ListItemIcon sx={{ color: 'white', minWidth: 40 }}>
-                    {item.icon}
-                  </ListItemIcon>
-                  <ListItemText 
-                    primary={item.label}
-                    secondary={item.description}
-                    sx={{ 
-                      '& .MuiListItemText-primary': { 
-                        color: 'white',
-                        fontWeight: isActive ? 600 : 400,
-                        fontSize: '0.95rem',
+      {/* Scrollable Navigation Menu */}
+      <Box 
+        sx={{ 
+          flex: 1,
+          overflowY: 'auto',
+          // Custom scrollbar styles for navigation area
+          '&::-webkit-scrollbar': {
+            width: '6px',
+          },
+          '&::-webkit-scrollbar-track': {
+            background: 'rgba(255,255,255,0.05)',
+            borderRadius: '3px',
+          },
+          '&::-webkit-scrollbar-thumb': {
+            background: 'rgba(255,255,255,0.2)',
+            borderRadius: '3px',
+            '&:hover': {
+              background: 'rgba(255,255,255,0.3)',
+            },
+          },
+          // Firefox scrollbar
+          scrollbarWidth: 'thin',
+          scrollbarColor: 'rgba(255,255,255,0.2) rgba(255,255,255,0.05)',
+        }}
+      >
+        <List sx={{ mt: 1, pb: 2 }}>
+          {menuItems.map((item, index) => {
+            const isActive = location.pathname === item.path
+            
+            return (
+              <motion.div
+                key={item.path}
+                initial={{ opacity: 0, x: -20 }}
+                animate={{ opacity: 1, x: 0 }}
+                transition={{ duration: 0.3, delay: index * 0.1 }}
+              >
+                <ListItem disablePadding sx={{ px: 1.5 }}>
+                  <ListItemButton
+                    onClick={() => navigate(item.path)}
+                    sx={{
+                      borderRadius: 2,
+                      mb: 0.75,
+                      py: 1.25,
+                      px: 1.5,
+                      backgroundColor: isActive ? 'rgba(255,255,255,0.2)' : 'transparent',
+                      '&:hover': {
+                        backgroundColor: 'rgba(255,255,255,0.1)',
+                        transform: 'translateX(4px)',
                       },
-                      '& .MuiListItemText-secondary': { 
-                        color: theme.palette.text.secondary,
-                        fontSize: '0.75rem',
-                      } 
-                    }} 
-                  />
-                </ListItemButton>
-              </ListItem>
-            </motion.div>
-          )
-        })}
-      </List>
-      
-      <Box sx={{ flexGrow: 1 }} />
+                      transition: 'all 0.2s ease-in-out',
+                    }}
+                  >
+                    <ListItemIcon sx={{ color: 'white', minWidth: 45 }}>
+                      {item.icon}
+                    </ListItemIcon>
+                    <ListItemText 
+                      primary={item.label}
+                      secondary={item.description}
+                      sx={{ 
+                        '& .MuiListItemText-primary': { 
+                          color: 'white',
+                          fontWeight: isActive ? 600 : 400,
+                          fontSize: '0.95rem',
+                        },
+                        '& .MuiListItemText-secondary': { 
+                          color: theme.palette.text.secondary,
+                          fontSize: '0.75rem',
+                        } 
+                      }} 
+                    />
+                  </ListItemButton>
+                </ListItem>
+              </motion.div>
+            )
+          })}
+        </List>
+      </Box>
       
       {/* Global Filters Section */}
-      <Box sx={{ px: 1, pb: 2, borderTop: '1px solid rgba(255,255,255,0.2)' }}>
+      <Box sx={{ px: 1.5, py: 2, borderTop: '1px solid rgba(255,255,255,0.2)' }}>
         <ListItemButton
           onClick={() => setFiltersExpanded(!filtersExpanded)}
           sx={{
             borderRadius: 2,
-            mb: 1,
+            mb: 1.5,
+            py: 1.25,
+            px: 1.5,
             backgroundColor: hasActiveFilters ? 'rgba(255,255,255,0.1)' : 'transparent',
             '&:hover': {
               backgroundColor: 'rgba(255,255,255,0.05)',
+              transform: 'translateX(2px)',
             },
+            transition: 'all 0.2s ease-in-out',
           }}
         >
-          <ListItemIcon sx={{ color: 'white', minWidth: 40 }}>
+          <ListItemIcon sx={{ color: 'white', minWidth: 45 }}>
             <FilterIcon />
           </ListItemIcon>
           <ListItemText 
@@ -299,10 +331,10 @@ const Sidebar = ({ open = true, onToggle }) => {
         </ListItemButton>
 
         <Collapse in={filtersExpanded}>
-          <Box sx={{ pl: 1, pr: 1, pb: 1 }}>
+          <Box sx={{ pl: 1.5, pr: 1.5, pb: 1 }}>
             {/* Network Filter */}
-            <Box sx={{ mb: 2 }}>
-              <Typography variant="caption" sx={{ color: 'rgba(255,255,255,0.7)', mb: 1, display: 'block' }}>
+            <Box sx={{ mb: 2.5 }}>
+              <Typography variant="caption" sx={{ color: 'rgba(255,255,255,0.7)', mb: 1.5, display: 'block', fontWeight: 500 }}>
                 WiFi Network
               </Typography>
               <FormControl fullWidth size="small">
@@ -312,17 +344,23 @@ const Sidebar = ({ open = true, onToggle }) => {
                   displayEmpty
                   sx={{
                     color: 'white',
+                    height: 42,
                     '& .MuiOutlinedInput-notchedOutline': {
-                      borderColor: 'rgba(255,255,255,0.3)',
+                      borderColor: 'rgba(255,255,255,0.25)',
+                      borderRadius: 2,
                     },
                     '&:hover .MuiOutlinedInput-notchedOutline': {
-                      borderColor: 'rgba(255,255,255,0.5)',
+                      borderColor: 'rgba(255,255,255,0.4)',
                     },
                     '&.Mui-focused .MuiOutlinedInput-notchedOutline': {
                       borderColor: theme.palette.primary.main,
+                      borderWidth: 2,
                     },
                     '& .MuiSelect-icon': {
-                      color: 'white',
+                      color: 'rgba(255,255,255,0.7)',
+                    },
+                    '& .MuiInputBase-input': {
+                      padding: '10px 14px',
                     },
                   }}
                   MenuProps={{
@@ -353,8 +391,8 @@ const Sidebar = ({ open = true, onToggle }) => {
             </Box>
 
             {/* Interface Filter */}
-            <Box sx={{ mb: 2 }}>
-              <Typography variant="caption" sx={{ color: 'rgba(255,255,255,0.7)', mb: 1, display: 'block' }}>
+            <Box sx={{ mb: 2.5 }}>
+              <Typography variant="caption" sx={{ color: 'rgba(255,255,255,0.7)', mb: 1.5, display: 'block', fontWeight: 500 }}>
                 Interface Type
               </Typography>
               <FormControl fullWidth size="small">
@@ -364,17 +402,23 @@ const Sidebar = ({ open = true, onToggle }) => {
                   displayEmpty
                   sx={{
                     color: 'white',
+                    height: 42,
                     '& .MuiOutlinedInput-notchedOutline': {
-                      borderColor: 'rgba(255,255,255,0.3)',
+                      borderColor: 'rgba(255,255,255,0.25)',
+                      borderRadius: 2,
                     },
                     '&:hover .MuiOutlinedInput-notchedOutline': {
-                      borderColor: 'rgba(255,255,255,0.5)',
+                      borderColor: 'rgba(255,255,255,0.4)',
                     },
                     '&.Mui-focused .MuiOutlinedInput-notchedOutline': {
                       borderColor: theme.palette.primary.main,
+                      borderWidth: 2,
                     },
                     '& .MuiSelect-icon': {
-                      color: 'white',
+                      color: 'rgba(255,255,255,0.7)',
+                    },
+                    '& .MuiInputBase-input': {
+                      padding: '10px 14px',
                     },
                   }}
                   MenuProps={{

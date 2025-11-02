@@ -12,7 +12,7 @@ import Trends from './pages/Trends'
 import Comparison from './pages/Comparison'
 import Settings from './pages/Settings'
 
-const drawerWidth = 240
+const drawerWidth = 280
 
 function App() {
   const [sidebarOpen, setSidebarOpen] = useState(true)
