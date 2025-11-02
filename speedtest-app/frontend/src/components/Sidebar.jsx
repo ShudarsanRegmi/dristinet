@@ -23,6 +23,7 @@ import {
   Compare as CompareIcon,
   Wifi as RealtimeIcon,
   ChevronLeft as ChevronLeftIcon,
+  PlayArrow as RunTestIcon,
 } from '@mui/icons-material'
 import { motion } from 'framer-motion'
 
@@ -34,6 +35,12 @@ const menuItems = [
     label: 'Overview', 
     icon: <DashboardIcon />,
     description: 'Quick stats & recent tests'
+  },
+  { 
+    path: '/live-test', 
+    label: 'Live Speedtest', 
+    icon: <RunTestIcon />,
+    description: 'Run test & compare results'
   },
   { 
     path: '/realtime', 

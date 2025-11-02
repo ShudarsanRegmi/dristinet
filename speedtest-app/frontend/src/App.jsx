@@ -4,6 +4,7 @@ import { Box, AppBar, Toolbar, IconButton, Typography, useTheme } from '@mui/mat
 import { Menu as MenuIcon } from '@mui/icons-material'
 import Sidebar from './components/Sidebar'
 import Dashboard from './pages/Dashboard'
+import LiveSpeedtest from './pages/LiveSpeedtest'
 import Realtime from './pages/Realtime'
 import Analytics from './pages/Analytics'
 import DayWise from './pages/DayWise'
@@ -77,6 +78,7 @@ function App() {
           
           <Routes>
             <Route path="/" element={<Dashboard />} />
+            <Route path="/live-test" element={<LiveSpeedtest />} />
             <Route path="/realtime" element={<Realtime />} />
             <Route path="/analytics" element={<Analytics />} />
             <Route path="/daywise" element={<DayWise />} />
