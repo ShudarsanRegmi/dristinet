@@ -67,7 +67,7 @@ export const useSpeedtestStats = () => {
   const stats = useMemo(() => {
     if (!data || data.length === 0) return {}
 
-    const validTests = data.filter(item => !item.hasError && item.downloadSpeed)
+    const validTests = data.filter(item => !item.hasError && item.downloadSpeed != null && item.downloadSpeed > 0)
     const failedTests = data.filter(item => item.hasError)
     
     if (validTests.length === 0) {
@@ -75,28 +75,42 @@ export const useSpeedtestStats = () => {
         totalTests: data.length,
         validTests: 0,
         failedTests: failedTests.length,
-        successRate: 0
+        successRate: 0,
+        avgDownload: 0,
+        avgUpload: 0,
+        avgLatency: 0
       }
     }
 
-    const downloadSpeeds = validTests.map(t => t.downloadSpeed).filter(Boolean)
-    const uploadSpeeds = validTests.map(t => t.uploadSpeed).filter(Boolean)
-    const latencies = validTests.map(t => t.latency).filter(Boolean)
+    const downloadSpeeds = validTests.map(t => t.downloadSpeed).filter(speed => speed != null && speed > 0)
+    const uploadSpeeds = validTests.map(t => t.uploadSpeed).filter(speed => speed != null && speed > 0)
+    const latencies = validTests.map(t => t.latency).filter(latency => latency != null && latency > 0)
+
+    console.log('Stats Debug:', {
+      totalTests: data.length,
+      validTests: validTests.length,
+      downloadSpeeds: downloadSpeeds.length,
+      uploadSpeeds: uploadSpeeds.length,
+      latencies: latencies.length,
+      sampleDownload: downloadSpeeds[0],
+      sampleUpload: uploadSpeeds[0],
+      sampleLatency: latencies[0]
+    })
 
     return {
       totalTests: data.length,
       validTests: validTests.length,
       failedTests: failedTests.length,
       successRate: (validTests.length / data.length) * 100,
-      avgDownload: downloadSpeeds.reduce((a, b) => a + b, 0) / downloadSpeeds.length,
-      avgUpload: uploadSpeeds.reduce((a, b) => a + b, 0) / uploadSpeeds.length,
-      avgLatency: latencies.reduce((a, b) => a + b, 0) / latencies.length,
-      maxDownload: Math.max(...downloadSpeeds),
-      minDownload: Math.min(...downloadSpeeds),
-      maxUpload: Math.max(...uploadSpeeds),
-      minUpload: Math.min(...uploadSpeeds),
-      maxLatency: Math.max(...latencies),
-      minLatency: Math.min(...latencies),
+      avgDownload: downloadSpeeds.length > 0 ? downloadSpeeds.reduce((a, b) => a + b, 0) / downloadSpeeds.length : 0,
+      avgUpload: uploadSpeeds.length > 0 ? uploadSpeeds.reduce((a, b) => a + b, 0) / uploadSpeeds.length : 0,
+      avgLatency: latencies.length > 0 ? latencies.reduce((a, b) => a + b, 0) / latencies.length : 0,
+      maxDownload: downloadSpeeds.length > 0 ? Math.max(...downloadSpeeds) : 0,
+      minDownload: downloadSpeeds.length > 0 ? Math.min(...downloadSpeeds) : 0,
+      maxUpload: uploadSpeeds.length > 0 ? Math.max(...uploadSpeeds) : 0,
+      minUpload: uploadSpeeds.length > 0 ? Math.min(...uploadSpeeds) : 0,
+      maxLatency: latencies.length > 0 ? Math.max(...latencies) : 0,
+      minLatency: latencies.length > 0 ? Math.min(...latencies) : 0,
     }
   }, [data])
 

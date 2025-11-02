@@ -29,7 +29,7 @@ import {
   ComposedChart
 } from 'recharts'
 import { motion } from 'framer-motion'
-import { useSpeedtestData } from '../hooks/useSpeedtestData'
+import { useSpeedtestData, useSpeedtestStats } from '../hooks/useSpeedtestData'
 import SpeedChart from '../components/SpeedChart'
 import StatsCard from '../components/StatsCard'
 import LoadingSpinner from '../components/LoadingSpinner'
@@ -42,8 +42,19 @@ import {
 
 const Analytics = () => {
   const theme = useTheme()
-  const { data, stats, loading, error } = useSpeedtestData()
+  const { data, loading: dataLoading, error: dataError } = useSpeedtestData()
+  const { stats, loading: statsLoading, error: statsError } = useSpeedtestStats()
   const [viewMode, setViewMode] = useState('overview')
+
+  // Debug logging
+  console.log('Analytics Debug:', { 
+    dataLength: data?.length, 
+    stats, 
+    dataLoading, 
+    statsLoading,
+    dataError,
+    statsError
+  })
 
   // Comprehensive data analysis
   const analyticsData = useMemo(() => {
@@ -103,15 +114,15 @@ const Analytics = () => {
     }
   }, [data])
 
-  if (loading) {
+  if (dataLoading || statsLoading) {
     return <LoadingSpinner message="Loading Analytics Data..." variant="analytics" size="medium" />
   }
 
-  if (error) {
+  if (dataError || statsError) {
     return (
       <Container maxWidth="xl" sx={{ mt: 4, mb: 4 }}>
         <Box display="flex" justifyContent="center" alignItems="center" minHeight="50vh">
-          <Typography color="error" variant="h6">Error loading data: {error}</Typography>
+          <Typography color="error" variant="h6">Error loading data: {dataError || statsError}</Typography>
         </Box>
       </Container>
     )
@@ -172,7 +183,7 @@ const Analytics = () => {
               <Grid item xs={12} sm={6} md={3}>
                 <StatsCard
                   title="Avg Download"
-                  value={stats?.avgDownloadSpeed?.toFixed(2) || '--'}
+                  value={stats?.avgDownload && !isNaN(stats.avgDownload) ? stats.avgDownload.toFixed(2) : '--'}
                   unit="Mbps"
                   icon={<SpeedIcon />}
                   color="success"
@@ -181,7 +192,7 @@ const Analytics = () => {
               <Grid item xs={12} sm={6} md={3}>
                 <StatsCard
                   title="Avg Upload"
-                  value={stats?.avgUploadSpeed?.toFixed(2) || '--'}
+                  value={stats?.avgUpload && !isNaN(stats.avgUpload) ? stats.avgUpload.toFixed(2) : '--'}
                   unit="Mbps"
                   icon={<UploadIcon />}
                   color="warning"
@@ -190,7 +201,7 @@ const Analytics = () => {
               <Grid item xs={12} sm={6} md={3}>
                 <StatsCard
                   title="Avg Latency"
-                  value={stats?.avgLatency?.toFixed(0) || '--'}
+                  value={stats?.avgLatency && !isNaN(stats.avgLatency) ? stats.avgLatency.toFixed(0) : '--'}
                   unit="ms"
                   icon={<LatencyIcon />}
                   color="error"
