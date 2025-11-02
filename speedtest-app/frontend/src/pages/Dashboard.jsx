@@ -41,8 +41,8 @@ const Dashboard = () => {
     )
   }
 
-  // Get recent data for charts (last 50 tests)
-  const recentData = data.slice(-50).filter(item => !item.hasError && item.downloadSpeed)
+  // Get all valid data for charts
+  const recentData = data.filter(item => !item.hasError && item.downloadSpeed)
 
   return (
     <Container maxWidth="xl" sx={{ mt: 4, mb: 4 }}>
