@@ -170,7 +170,10 @@ const Sidebar = ({ open = true, onToggle }) => {
           backgroundColor: theme.palette.background.paper,
           borderRight: '1px solid rgba(255, 255, 255, 0.05)',
           color: 'white',
-          position: 'relative',
+          position: 'fixed',
+          height: '100vh',
+          display: 'flex',
+          flexDirection: 'column',
         },
       }}
     >
