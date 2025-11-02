@@ -268,28 +268,137 @@ const Analytics = () => {
           <Grid item xs={12} lg={4}>
             <Card>
               <CardContent>
-                <Typography variant="h6" gutterBottom>
+                <Typography variant="h6" gutterBottom sx={{ mb: 2, fontWeight: 600 }}>
                   Speed Distribution
                 </Typography>
-                <ResponsiveContainer width="100%" height={300}>
-                  <PieChart>
-                    <Pie
-                      data={analyticsData.speedRanges || []}
-                      cx="50%"
-                      cy="50%"
-                      labelLine={false}
-                      label={({ range, percent }) => `${range} Mbps (${(percent * 100).toFixed(0)}%)`}
-                      outerRadius={80}
-                      fill="#8884d8"
-                      dataKey="count"
+                
+                {/* Compact Chart with Center Legend */}
+                <Box sx={{ position: 'relative', mb: 2 }}>
+                  <ResponsiveContainer width="100%" height={280}>
+                    <PieChart>
+                      <Pie
+                        data={analyticsData.speedRanges || []}
+                        cx="50%"
+                        cy="50%"
+                        innerRadius={70}
+                        outerRadius={110}
+                        paddingAngle={3}
+                        dataKey="count"
+                        stroke={theme.palette.background.paper}
+                        strokeWidth={2}
+                      >
+                        {(analyticsData.speedRanges || []).map((entry, index) => (
+                          <Cell 
+                            key={`cell-${index}`} 
+                            fill={entry.color}
+                            style={{
+                              filter: 'drop-shadow(0 2px 4px rgba(0,0,0,0.1))',
+                              transition: 'all 0.3s ease'
+                            }}
+                          />
+                        ))}
+                      </Pie>
+                      <Tooltip 
+                        content={({ active, payload }) => {
+                          if (active && payload && payload.length) {
+                            const data = payload[0].payload
+                            return (
+                              <Box sx={{
+                                bgcolor: 'background.paper',
+                                p: 1.5,
+                                borderRadius: 2,
+                                boxShadow: 3,
+                                border: '1px solid',
+                                borderColor: 'divider'
+                              }}>
+                                <Typography variant="body2" sx={{ fontWeight: 600 }}>
+                                  {data.range} Mbps
+                                </Typography>
+                                <Typography variant="body2" color="text.secondary">
+                                  {data.count} tests ({((data.count / (analyticsData.validTests || 1)) * 100).toFixed(1)}%)
+                                </Typography>
+                              </Box>
+                            )
+                          }
+                          return null
+                        }}
+                      />
+                    </PieChart>
+                  </ResponsiveContainer>
+                  
+                  {/* Center Summary */}
+                  <Box sx={{
+                    position: 'absolute',
+                    top: '50%',
+                    left: '50%',
+                    transform: 'translate(-50%, -50%)',
+                    textAlign: 'center',
+                    pointerEvents: 'none'
+                  }}>
+                    <Typography variant="h4" sx={{ fontWeight: 700, lineHeight: 1 }}>
+                      {analyticsData.validTests || 0}
+                    </Typography>
+                    <Typography variant="caption" color="text.secondary" sx={{ display: 'block' }}>
+                      Total Tests
+                    </Typography>
+                  </Box>
+                </Box>
+
+                {/* Horizontal Legend */}
+                <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 1.5, justifyContent: 'center' }}>
+                  {(analyticsData.speedRanges || []).map((range, index) => (
+                    <motion.div
+                      key={index}
+                      initial={{ opacity: 0, scale: 0.8 }}
+                      animate={{ opacity: 1, scale: 1 }}
+                      transition={{ delay: index * 0.1 }}
                     >
-                      {(analyticsData.speedRanges || []).map((entry, index) => (
-                        <Cell key={`cell-${index}`} fill={entry.color} />
-                      ))}
-                    </Pie>
-                    <Tooltip />
-                  </PieChart>
-                </ResponsiveContainer>
+                      <Box sx={{
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: 1,
+                        px: 2,
+                        py: 1,
+                        borderRadius: 2,
+                        bgcolor: 'rgba(255,255,255,0.05)',
+                        border: '1px solid rgba(255,255,255,0.1)',
+                        '&:hover': {
+                          bgcolor: 'rgba(255,255,255,0.1)',
+                          transform: 'translateY(-2px)',
+                          boxShadow: '0 4px 12px rgba(0,0,0,0.15)'
+                        },
+                        transition: 'all 0.2s ease',
+                        cursor: 'pointer'
+                      }}>
+                        <Box sx={{
+                          width: 12,
+                          height: 12,
+                          borderRadius: '50%',
+                          bgcolor: range.color,
+                          boxShadow: `0 0 0 2px ${range.color}30`
+                        }} />
+                        <Typography variant="body2" sx={{ fontWeight: 500, minWidth: 'fit-content' }}>
+                          {range.range}
+                        </Typography>
+                        <Box sx={{
+                          px: 1,
+                          py: 0.25,
+                          borderRadius: 1,
+                          bgcolor: range.color + '20',
+                          minWidth: 'fit-content'
+                        }}>
+                          <Typography variant="caption" sx={{ 
+                            fontWeight: 600,
+                            color: range.color,
+                            filter: 'brightness(1.2)'
+                          }}>
+                            {range.count} ({((range.count / (analyticsData.validTests || 1)) * 100).toFixed(0)}%)
+                          </Typography>
+                        </Box>
+                      </Box>
+                    </motion.div>
+                  ))}
+                </Box>
               </CardContent>
             </Card>
           </Grid>
