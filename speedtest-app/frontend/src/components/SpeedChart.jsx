@@ -326,7 +326,7 @@ const SpeedChart = ({ data, title, type = 'points' }) => {
     showlegend: true,
     legend: {
       orientation: 'h',
-      y: -0.15,
+      y: -0.25,
       x: 0.5,
       xanchor: 'center',
       font: { color: theme.palette.text.primary }
@@ -335,13 +335,17 @@ const SpeedChart = ({ data, title, type = 'points' }) => {
       type: 'date',
       title: 'Time',
       gridcolor: theme.palette.mode === 'dark' ? 'rgba(255,255,255,0.1)' : 'rgba(0,0,0,0.1)',
-      tickfont: { color: theme.palette.text.secondary },
+      tickfont: { color: theme.palette.text.secondary, size: 11 },
       titlefont: { color: theme.palette.text.primary },
-      tickmode: 'auto',
-      nticks: 10,
-      tickformat: timeRange === '24h' ? '%H:%M' : timeRange === '1week' ? '%m/%d %H:%M' : '%m/%d',
+      tickmode: timeRange === '24h' ? 'linear' : 'auto',
+      dtick: timeRange === '24h' ? 30 * 60 * 1000 : null, // 30 minutes in milliseconds
+      nticks: timeRange === '24h' ? null : 8,
+      tickformat: '%b %d : %H:%M',
       showticklabels: true,
-      tickangle: -45
+      tickangle: -45,
+      ticklen: 8,
+      tickwidth: 1,
+      tickcolor: theme.palette.text.disabled
     },
     yaxis: (() => {
       const yAxisConfig = getOptimalYAxisRange()
@@ -362,7 +366,7 @@ const SpeedChart = ({ data, title, type = 'points' }) => {
     })(),
     plot_bgcolor: 'transparent',
     paper_bgcolor: 'transparent',
-    margin: { l: 60, r: 30, t: 30, b: 80 },
+    margin: { l: 60, r: 30, t: 30, b: 160 },
     dragmode: 'zoom',
     hovermode: 'closest'
   }
