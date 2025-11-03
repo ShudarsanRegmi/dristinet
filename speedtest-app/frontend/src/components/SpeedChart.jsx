@@ -631,20 +631,160 @@ const SpeedChart = ({ data, title, type = 'points', showTimeRange = true, isDayV
         </Toolbar>
       </AppBar>
       <DialogContent sx={{ p: 3, height: 'calc(100% - 64px)' }}>
-        <Box sx={{ width: '100%', height: '100%' }}>
-          <Plot
-            data={addReferenceLines(createTraces())}
-            layout={{
-              ...layout,
-              autosize: true,
-              width: undefined,
-              height: undefined,
-              font: { color: theme.palette.text.primary }
-            }}
-            config={config}
-            style={{ width: '100%', height: '100%' }}
-            useResizeHandler
-          />
+        <Box sx={{ width: '100%', height: '100%', display: 'flex', flexDirection: 'column' }}>
+          {/* Controls Row */}
+          <Box sx={{ 
+            display: 'flex', 
+            alignItems: 'center', 
+            justifyContent: 'space-between', 
+            flexWrap: 'wrap',
+            gap: 2, 
+            mb: 2,
+            pb: 2,
+            borderBottom: 1,
+            borderColor: 'divider'
+          }}>
+            {/* Chart Type Toggles */}
+            <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
+              <Typography variant="body2" color="text.secondary" sx={{ mr: 1 }}>
+                Chart Type:
+              </Typography>
+              <ToggleButtonGroup
+                value={chartType}
+                exclusive
+                onChange={handleChartTypeChange}
+                size="small"
+                sx={{
+                  '& .MuiToggleButton-root': {
+                    px: 1.5,
+                    py: 0.5,
+                    fontSize: '0.75rem',
+                    border: '1px solid',
+                    borderColor: 'divider',
+                    '&.Mui-selected': {
+                      bgcolor: 'primary.main',
+                      color: 'primary.contrastText',
+                      '&:hover': {
+                        bgcolor: 'primary.dark',
+                      }
+                    }
+                  }
+                }}
+              >
+                <ToggleButton value="points" aria-label="scatter plot">
+                  <PointIcon fontSize="small" sx={{ mr: 0.5 }} />
+                  Points
+                </ToggleButton>
+                <ToggleButton value="line" aria-label="line chart">
+                  <LineIcon fontSize="small" sx={{ mr: 0.5 }} />
+                  Line
+                </ToggleButton>
+                <ToggleButton value="area" aria-label="area chart">
+                  <AreaIcon fontSize="small" sx={{ mr: 0.5 }} />
+                  Area
+                </ToggleButton>
+              </ToggleButtonGroup>
+            </Box>
+
+            {/* Time Range and Visibility Controls */}
+            <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, flexWrap: 'wrap' }}>
+              {/* Time Range Selector */}
+              {showTimeRange && (
+                <FormControl size="small" sx={{ minWidth: 120 }}>
+                  <InputLabel>Time Range</InputLabel>
+                  <Select
+                    value={timeRange}
+                    label="Time Range"
+                    onChange={(e) => setTimeRange(e.target.value)}
+                  >
+                    <MenuItem value="all">All Time</MenuItem>
+                    <MenuItem value="24h">Last 24 Hours</MenuItem>
+                    <MenuItem value="1week">Last Week</MenuItem>
+                    <MenuItem value="30days">Last 30 Days</MenuItem>
+                  </Select>
+                </FormControl>
+              )}
+              
+              {/* Show/Hide Controls */}
+              <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                <Typography variant="body2" color="text.secondary" sx={{ mr: 1 }}>
+                  Show:
+                </Typography>
+                <FormControlLabel
+                  control={
+                    <Checkbox
+                      checked={showDownload}
+                      onChange={(e) => setShowDownload(e.target.checked)}
+                      size="small"
+                      sx={{ 
+                        color: 'primary.main',
+                        '&.Mui-checked': { color: 'primary.main' }
+                      }}
+                    />
+                  }
+                  label={<Typography variant="body2">Download</Typography>}
+                />
+                <FormControlLabel
+                  control={
+                    <Checkbox
+                      checked={showUpload}
+                      onChange={(e) => setShowUpload(e.target.checked)}
+                      size="small"
+                      sx={{ 
+                        color: 'success.main',
+                        '&.Mui-checked': { color: 'success.main' }
+                      }}
+                    />
+                  }
+                  label={<Typography variant="body2">Upload</Typography>}
+                />
+              </Box>
+            </Box>
+          </Box>
+
+          {/* Status Bar */}
+          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 1 }}>
+            {chartData.rawData.length === 0 && (
+              <Chip
+                label="No data available"
+                size="small"
+                variant="filled"
+                color="warning"
+              />
+            )}
+            {selectedPoints.length > 0 && (
+              <Chip
+                label={`${selectedPoints.length} selected`}
+                size="small"
+                variant="filled"
+                color="info"
+                onDelete={() => setSelectedPoints([])}
+              />
+            )}
+            <Typography variant="caption" color="text.secondary" sx={{ ml: 'auto' }}>
+              🔍 Drag to zoom • Double-click to reset • Y-axis auto-scaled for optimal data insight
+            </Typography>
+          </Box>
+
+          {/* Chart Area */}
+          <Box sx={{ flex: 1, width: '100%' }}>
+            <Plot
+              key={`${showDownload}-${showUpload}-${timeRange}-fullscreen`} // Force re-render when controls change
+              data={addReferenceLines(createTraces())}
+              layout={{
+                ...layout,
+                autosize: true,
+                width: undefined,
+                height: undefined,
+                font: { color: theme.palette.text.primary }
+              }}
+              config={config}
+              onClick={handlePlotlyEvent}
+              onSelected={handlePlotlyEvent}
+              style={{ width: '100%', height: '100%' }}
+              useResizeHandler
+            />
+          </Box>
         </Box>
       </DialogContent>
     </Dialog>
