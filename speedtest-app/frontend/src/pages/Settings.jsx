@@ -11,8 +11,11 @@ import {
   Grid,
 } from '@mui/material'
 import { motion } from 'framer-motion'
+import { useTheme } from '../context/ThemeContext'
 
 const Settings = () => {
+  const { isDark, toggleTheme } = useTheme()
+  
   return (
     <Container maxWidth="md" sx={{ mt: 4, mb: 4 }}>
       <motion.div
@@ -53,8 +56,24 @@ const Settings = () => {
               />
               
               <FormControlLabel
-                control={<Switch />}
-                label="Dark mode"
+                control={
+                  <Switch 
+                    checked={isDark}
+                    onChange={toggleTheme}
+                    color="primary"
+                  />
+                }
+                label={
+                  <Box>
+                    <Typography component="span">Dark mode</Typography>
+                    <Typography variant="caption" display="block" color="text.secondary">
+                      {isDark ? 'Currently using dark theme' : 'Currently using light theme'}
+                    </Typography>
+                    <Typography variant="caption" display="block" color="text.secondary" sx={{ fontStyle: 'italic' }}>
+                      Tip: Press Ctrl+Shift+T to toggle theme quickly
+                    </Typography>
+                  </Box>
+                }
                 sx={{ mb: 2, display: 'block' }}
               />
               
@@ -88,11 +107,64 @@ const Settings = () => {
           </motion.div>
         </Grid>
 
-        <Grid item xs={12}>
+        <Grid item xs={12} md={6}>
           <motion.div
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.5, delay: 0.2 }}
+          >
+            <Paper sx={{ p: 3 }}>
+              <Typography variant="h6" sx={{ mb: 3, fontWeight: 600 }}>
+                Theme Preview
+              </Typography>
+              
+              <Box sx={{ display: 'flex', gap: 2, flexWrap: 'wrap', mb: 2 }}>
+                <Box sx={{ 
+                  width: 40, 
+                  height: 40, 
+                  borderRadius: 1, 
+                  bgcolor: 'primary.main',
+                  border: '2px solid',
+                  borderColor: 'divider'
+                }} />
+                <Box sx={{ 
+                  width: 40, 
+                  height: 40, 
+                  borderRadius: 1, 
+                  bgcolor: 'background.default',
+                  border: '2px solid',
+                  borderColor: 'divider'
+                }} />
+                <Box sx={{ 
+                  width: 40, 
+                  height: 40, 
+                  borderRadius: 1, 
+                  bgcolor: 'background.paper',
+                  border: '2px solid',
+                  borderColor: 'divider'
+                }} />
+                <Box sx={{ 
+                  width: 40, 
+                  height: 40, 
+                  borderRadius: 1, 
+                  bgcolor: 'text.primary',
+                  border: '2px solid',
+                  borderColor: 'divider'
+                }} />
+              </Box>
+              
+              <Typography variant="body2" color="text.secondary">
+                Current theme: <strong>{isDark ? 'Dark' : 'Light'}</strong>
+              </Typography>
+            </Paper>
+          </motion.div>
+        </Grid>
+
+        <Grid item xs={12} md={6}>
+          <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.5, delay: 0.3 }}
           >
             <Paper sx={{ p: 3 }}>
               <Typography variant="h6" sx={{ mb: 3, fontWeight: 600 }}>

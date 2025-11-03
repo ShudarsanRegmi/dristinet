@@ -168,13 +168,14 @@ const Sidebar = ({ open = true, onToggle }) => {
           width: drawerWidth,
           boxSizing: 'border-box',
           backgroundColor: theme.palette.background.paper,
-          borderRight: '1px solid rgba(255, 255, 255, 0.05)',
-          color: 'white',
+          borderRight: `1px solid ${theme.palette.divider}`,
+          color: theme.palette.text.primary,
           position: 'fixed',
           height: '100vh',
           display: 'flex',
           flexDirection: 'column',
           overflowY: 'hidden', // Prevent main drawer from scrolling
+          transition: 'background-color 0.3s ease-in-out, border-color 0.3s ease-in-out',
         },
       }}
     >
@@ -186,9 +187,9 @@ const Sidebar = ({ open = true, onToggle }) => {
         >
           <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
             <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-              <SpeedIcon sx={{ fontSize: 32, color: 'white' }} />
+              <SpeedIcon sx={{ fontSize: 32, color: theme.palette.primary.main }} />
               <Box>
-                <Typography variant="h6" sx={{ fontWeight: 600, color: 'white' }}>
+                <Typography variant="h6" sx={{ fontWeight: 600, color: theme.palette.text.primary }}>
                   Network Monitor
                 </Typography>
                 <Typography variant="caption" sx={{ color: theme.palette.text.secondary }}>
@@ -201,8 +202,8 @@ const Sidebar = ({ open = true, onToggle }) => {
                 onClick={onToggle}
                 size="small"
                 sx={{ 
-                  color: 'white',
-                  '&:hover': { bgcolor: 'rgba(255,255,255,0.1)' }
+                  color: theme.palette.text.primary,
+                  '&:hover': { bgcolor: theme.palette.action.hover }
                 }}
               >
                 <ChevronLeftIcon />
@@ -212,7 +213,7 @@ const Sidebar = ({ open = true, onToggle }) => {
         </motion.div>
       </Box>
       
-      <Divider sx={{ borderColor: 'rgba(255,255,255,0.2)', mx: 1 }} />
+      <Divider sx={{ borderColor: theme.palette.divider, mx: 1 }} />
       
       {/* Scrollable Navigation Menu */}
       <Box 
@@ -224,19 +225,19 @@ const Sidebar = ({ open = true, onToggle }) => {
             width: '6px',
           },
           '&::-webkit-scrollbar-track': {
-            background: 'rgba(255,255,255,0.05)',
+            background: theme.palette.action.hover,
             borderRadius: '3px',
           },
           '&::-webkit-scrollbar-thumb': {
-            background: 'rgba(255,255,255,0.2)',
+            background: theme.palette.action.selected,
             borderRadius: '3px',
             '&:hover': {
-              background: 'rgba(255,255,255,0.3)',
+              background: theme.palette.action.focus,
             },
           },
           // Firefox scrollbar
           scrollbarWidth: 'thin',
-          scrollbarColor: 'rgba(255,255,255,0.2) rgba(255,255,255,0.05)',
+          scrollbarColor: `${theme.palette.action.selected} ${theme.palette.action.hover}`,
         }}
       >
         <List sx={{ mt: 1, pb: 2 }}>
@@ -258,15 +259,15 @@ const Sidebar = ({ open = true, onToggle }) => {
                       mb: 0.75,
                       py: 1.25,
                       px: 1.5,
-                      backgroundColor: isActive ? 'rgba(255,255,255,0.2)' : 'transparent',
+                      backgroundColor: isActive ? theme.palette.action.selected : 'transparent',
                       '&:hover': {
-                        backgroundColor: 'rgba(255,255,255,0.1)',
+                        backgroundColor: theme.palette.action.hover,
                         transform: 'translateX(4px)',
                       },
                       transition: 'all 0.2s ease-in-out',
                     }}
                   >
-                    <ListItemIcon sx={{ color: 'white', minWidth: 45 }}>
+                    <ListItemIcon sx={{ color: theme.palette.text.primary, minWidth: 45 }}>
                       {item.icon}
                     </ListItemIcon>
                     <ListItemText 
@@ -274,7 +275,7 @@ const Sidebar = ({ open = true, onToggle }) => {
                       secondary={item.description}
                       sx={{ 
                         '& .MuiListItemText-primary': { 
-                          color: 'white',
+                          color: theme.palette.text.primary,
                           fontWeight: isActive ? 600 : 400,
                           fontSize: '0.95rem',
                         },
@@ -293,7 +294,7 @@ const Sidebar = ({ open = true, onToggle }) => {
       </Box>
       
       {/* Global Filters Section */}
-      <Box sx={{ px: 1.5, py: 2, borderTop: '1px solid rgba(255,255,255,0.2)' }}>
+      <Box sx={{ px: 1.5, py: 2, borderTop: `1px solid ${theme.palette.divider}` }}>
         <ListItemButton
           onClick={() => setFiltersExpanded(!filtersExpanded)}
           sx={{
@@ -301,15 +302,15 @@ const Sidebar = ({ open = true, onToggle }) => {
             mb: 1.5,
             py: 1.25,
             px: 1.5,
-            backgroundColor: hasActiveFilters ? 'rgba(255,255,255,0.1)' : 'transparent',
+            backgroundColor: hasActiveFilters ? theme.palette.action.selected : 'transparent',
             '&:hover': {
-              backgroundColor: 'rgba(255,255,255,0.05)',
+              backgroundColor: theme.palette.action.hover,
               transform: 'translateX(2px)',
             },
             transition: 'all 0.2s ease-in-out',
           }}
         >
-          <ListItemIcon sx={{ color: 'white', minWidth: 45 }}>
+          <ListItemIcon sx={{ color: theme.palette.text.primary, minWidth: 45 }}>
             <FilterIcon />
           </ListItemIcon>
           <ListItemText 
@@ -317,7 +318,7 @@ const Sidebar = ({ open = true, onToggle }) => {
             secondary={hasActiveFilters ? `${networkFilter !== 'all' ? 1 : 0 + interfaceFilter !== 'all' ? 1 : 0} active` : 'Global data filters'}
             sx={{ 
               '& .MuiListItemText-primary': { 
-                color: 'white',
+                color: theme.palette.text.primary,
                 fontWeight: hasActiveFilters ? 600 : 400,
                 fontSize: '0.95rem',
               },
@@ -327,14 +328,14 @@ const Sidebar = ({ open = true, onToggle }) => {
               } 
             }} 
           />
-          {filtersExpanded ? <ExpandLessIcon sx={{ color: 'white' }} /> : <ExpandMoreIcon sx={{ color: 'white' }} />}
+          {filtersExpanded ? <ExpandLessIcon sx={{ color: theme.palette.text.primary }} /> : <ExpandMoreIcon sx={{ color: theme.palette.text.primary }} />}
         </ListItemButton>
 
         <Collapse in={filtersExpanded}>
           <Box sx={{ pl: 1.5, pr: 1.5, pb: 1 }}>
             {/* Network Filter */}
             <Box sx={{ mb: 2.5 }}>
-              <Typography variant="caption" sx={{ color: 'rgba(255,255,255,0.7)', mb: 1.5, display: 'block', fontWeight: 500 }}>
+              <Typography variant="caption" sx={{ color: theme.palette.text.secondary, mb: 1.5, display: 'block', fontWeight: 500 }}>
                 WiFi Network
               </Typography>
               <FormControl fullWidth size="small">
@@ -343,21 +344,21 @@ const Sidebar = ({ open = true, onToggle }) => {
                   onChange={(e) => handleNetworkFilterChange(e.target.value)}
                   displayEmpty
                   sx={{
-                    color: 'white',
+                    color: theme.palette.text.primary,
                     height: 42,
                     '& .MuiOutlinedInput-notchedOutline': {
-                      borderColor: 'rgba(255,255,255,0.25)',
+                      borderColor: theme.palette.divider,
                       borderRadius: 2,
                     },
                     '&:hover .MuiOutlinedInput-notchedOutline': {
-                      borderColor: 'rgba(255,255,255,0.4)',
+                      borderColor: theme.palette.text.secondary,
                     },
                     '&.Mui-focused .MuiOutlinedInput-notchedOutline': {
                       borderColor: theme.palette.primary.main,
                       borderWidth: 2,
                     },
                     '& .MuiSelect-icon': {
-                      color: 'rgba(255,255,255,0.7)',
+                      color: theme.palette.text.secondary,
                     },
                     '& .MuiInputBase-input': {
                       padding: '10px 14px',
@@ -392,7 +393,7 @@ const Sidebar = ({ open = true, onToggle }) => {
 
             {/* Interface Filter */}
             <Box sx={{ mb: 2.5 }}>
-              <Typography variant="caption" sx={{ color: 'rgba(255,255,255,0.7)', mb: 1.5, display: 'block', fontWeight: 500 }}>
+              <Typography variant="caption" sx={{ color: theme.palette.text.secondary, mb: 1.5, display: 'block', fontWeight: 500 }}>
                 Interface Type
               </Typography>
               <FormControl fullWidth size="small">
@@ -401,21 +402,21 @@ const Sidebar = ({ open = true, onToggle }) => {
                   onChange={(e) => handleInterfaceFilterChange(e.target.value)}
                   displayEmpty
                   sx={{
-                    color: 'white',
+                    color: theme.palette.text.primary,
                     height: 42,
                     '& .MuiOutlinedInput-notchedOutline': {
-                      borderColor: 'rgba(255,255,255,0.25)',
+                      borderColor: theme.palette.divider,
                       borderRadius: 2,
                     },
                     '&:hover .MuiOutlinedInput-notchedOutline': {
-                      borderColor: 'rgba(255,255,255,0.4)',
+                      borderColor: theme.palette.text.secondary,
                     },
                     '&.Mui-focused .MuiOutlinedInput-notchedOutline': {
                       borderColor: theme.palette.primary.main,
                       borderWidth: 2,
                     },
                     '& .MuiSelect-icon': {
-                      color: 'rgba(255,255,255,0.7)',
+                      color: theme.palette.text.secondary,
                     },
                     '& .MuiInputBase-input': {
                       padding: '10px 14px',
@@ -484,10 +485,10 @@ const Sidebar = ({ open = true, onToggle }) => {
                     size="small"
                     onClick={handleResetFilters}
                     sx={{
-                      color: 'rgba(255,255,255,0.7)',
+                      color: theme.palette.text.secondary,
                       '&:hover': {
-                        color: 'white',
-                        bgcolor: 'rgba(255,255,255,0.1)',
+                        color: theme.palette.text.primary,
+                        bgcolor: theme.palette.action.hover,
                       },
                     }}
                   >

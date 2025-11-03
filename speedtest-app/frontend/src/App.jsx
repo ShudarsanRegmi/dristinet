@@ -1,7 +1,8 @@
 import React, { useState } from 'react'
 import { BrowserRouter as Router, Routes, Route } from 'react-router-dom'
-import { Box, AppBar, Toolbar, IconButton, Typography, useTheme } from '@mui/material'
-import { Menu as MenuIcon } from '@mui/icons-material'
+import { Box, AppBar, Toolbar, IconButton, Typography, useTheme as useMuiTheme, Tooltip } from '@mui/material'
+import { Menu as MenuIcon, LightMode, DarkMode } from '@mui/icons-material'
+import { useTheme } from './context/ThemeContext'
 import Sidebar from './components/Sidebar'
 import Dashboard from './pages/Dashboard'
 import LiveSpeedtest from './pages/LiveSpeedtest'
@@ -16,7 +17,8 @@ const drawerWidth = 280
 
 function App() {
   const [sidebarOpen, setSidebarOpen] = useState(true)
-  const theme = useTheme()
+  const muiTheme = useMuiTheme()
+  const { themeMode, toggleTheme, isDark } = useTheme()
 
   const toggleSidebar = () => {
     setSidebarOpen(!sidebarOpen)
@@ -31,14 +33,14 @@ function App() {
           sx={{ 
             width: sidebarOpen ? `calc(100% - ${drawerWidth}px)` : '100%',
             ml: sidebarOpen ? `${drawerWidth}px` : 0,
-            transition: theme.transitions.create(['width', 'margin'], {
-              easing: theme.transitions.easing.sharp,
-              duration: theme.transitions.duration.enteringScreen,
+            transition: muiTheme.transitions.create(['width', 'margin'], {
+              easing: muiTheme.transitions.easing.sharp,
+              duration: muiTheme.transitions.duration.enteringScreen,
             }),
             bgcolor: 'background.paper',
             color: 'text.primary',
             boxShadow: 'none',
-            borderBottom: `1px solid ${theme.palette.divider}`,
+            borderBottom: `1px solid ${muiTheme.palette.divider}`,
           }}
         >
           <Toolbar>
@@ -54,6 +56,23 @@ function App() {
             <Typography variant="h6" noWrap component="div" sx={{ flexGrow: 1 }}>
               Network Performance Dashboard
             </Typography>
+            
+            {/* Theme Toggle Button */}
+            <Tooltip title={isDark ? 'Switch to light mode' : 'Switch to dark mode'}>
+              <IconButton
+                color="inherit"
+                onClick={toggleTheme}
+                sx={{
+                  ml: 2,
+                  transition: 'transform 0.2s ease-in-out',
+                  '&:hover': {
+                    transform: 'rotate(180deg)',
+                  },
+                }}
+              >
+                {isDark ? <LightMode /> : <DarkMode />}
+              </IconButton>
+            </Tooltip>
           </Toolbar>
         </AppBar>
 
@@ -66,9 +85,9 @@ function App() {
           sx={{ 
             flexGrow: 1,
             width: sidebarOpen ? `calc(100% - ${drawerWidth}px)` : '100%',
-            transition: theme.transitions.create(['width', 'margin'], {
-              easing: theme.transitions.easing.sharp,
-              duration: theme.transitions.duration.enteringScreen,
+            transition: muiTheme.transitions.create(['width', 'margin'], {
+              easing: muiTheme.transitions.easing.sharp,
+              duration: muiTheme.transitions.duration.enteringScreen,
             }),
             ml: sidebarOpen ? 0 : `-${drawerWidth}px`,
           }}
