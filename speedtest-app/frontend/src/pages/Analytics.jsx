@@ -12,6 +12,12 @@ import {
   InputLabel,
   Select,
   MenuItem,
+  Dialog,
+  DialogContent,
+  DialogTitle,
+  IconButton,
+  AppBar,
+  Toolbar,
 } from '@mui/material'
 import { 
   BarChart, 
@@ -39,7 +45,9 @@ import {
   Analytics as AnalyticsIcon,
   Speed as SpeedIcon,
   Upload as UploadIcon,
-  NetworkCheck as LatencyIcon
+  NetworkCheck as LatencyIcon,
+  Fullscreen as FullscreenIcon,
+  Close as CloseIcon
 } from '@mui/icons-material'
 
 const Analytics = () => {
@@ -47,6 +55,14 @@ const Analytics = () => {
   const { data, loading: dataLoading, error: dataError } = useSpeedtestData()
   const { stats, loading: statsLoading, error: statsError } = useSpeedtestStats()
   const [viewMode, setViewMode] = useState('overview')
+  
+  // Fullscreen state
+  const [fullscreenChart, setFullscreenChart] = useState(null)
+  
+  // Helper function to open chart in fullscreen
+  const openFullscreen = (title, content) => {
+    setFullscreenChart({ title, content })
+  }
   
   // Performance threshold states (moved to top level)
   const [speedThreshold, setSpeedThreshold] = useState(5) // Default 5 Mbps threshold
@@ -222,9 +238,62 @@ const Analytics = () => {
           <Grid item xs={12} lg={8}>
             <Card>
               <CardContent>
-                <Typography variant="h6" gutterBottom>
-                  Hourly Performance Pattern
-                </Typography>
+                <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
+                  <Typography variant="h6" sx={{ fontWeight: 600 }}>
+                    📊 Hourly Performance Pattern
+                  </Typography>
+                  <IconButton 
+                    onClick={() => openFullscreen('Hourly Performance Pattern', (
+                      <ResponsiveContainer width="100%" height="100%">
+                        <ComposedChart data={analyticsData.hourlyStats || []}>
+                          <CartesianGrid strokeDasharray="3 3" stroke={theme.palette.divider} />
+                          <XAxis 
+                            dataKey="hour" 
+                            stroke={theme.palette.text.secondary}
+                            fontSize={12}
+                          />
+                          <YAxis 
+                            yAxisId="speed"
+                            stroke={theme.palette.text.secondary}
+                            fontSize={12}
+                          />
+                          <YAxis 
+                            yAxisId="latency"
+                            orientation="right"
+                            stroke={theme.palette.text.secondary}
+                            fontSize={12}
+                          />
+                          <Tooltip 
+                            contentStyle={{
+                              backgroundColor: theme.palette.background.paper,
+                              border: `1px solid ${theme.palette.divider}`,
+                              borderRadius: '8px'
+                            }}
+                          />
+                          <Bar 
+                            yAxisId="speed"
+                            dataKey="avgDownload" 
+                            fill="#1565C0" 
+                            name="Avg Download (Mbps)"
+                            opacity={0.7}
+                          />
+                          <Line 
+                            yAxisId="latency"
+                            type="monotone" 
+                            dataKey="avgLatency" 
+                            stroke="#ED8936" 
+                            strokeWidth={2}
+                            name="Avg Latency (ms)"
+                          />
+                        </ComposedChart>
+                      </ResponsiveContainer>
+                    ))}
+                    size="small"
+                    sx={{ color: 'text.secondary' }}
+                  >
+                    <FullscreenIcon />
+                  </IconButton>
+                </Box>
                 <ResponsiveContainer width="100%" height={300}>
                   <ComposedChart data={analyticsData.hourlyStats || []}>
                     <CartesianGrid strokeDasharray="3 3" stroke={theme.palette.divider} />
@@ -276,9 +345,87 @@ const Analytics = () => {
           <Grid item xs={12} lg={4}>
             <Card>
               <CardContent>
-                <Typography variant="h6" gutterBottom sx={{ mb: 2, fontWeight: 600 }}>
-                  Speed Distribution
-                </Typography>
+                <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
+                  <Typography variant="h6" sx={{ fontWeight: 600 }}>
+                    📊 Speed Distribution
+                  </Typography>
+                  <IconButton 
+                    onClick={() => openFullscreen('Speed Distribution', (
+                      <Box sx={{ position: 'relative', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                        <ResponsiveContainer width="100%" height="80%">
+                          <PieChart>
+                            <Pie
+                              data={analyticsData.speedRanges || []}
+                              cx="50%"
+                              cy="50%"
+                              innerRadius={100}
+                              outerRadius={200}
+                              paddingAngle={3}
+                              dataKey="count"
+                              stroke={theme.palette.background.paper}
+                              strokeWidth={2}
+                            >
+                              {(analyticsData.speedRanges || []).map((entry, index) => (
+                                <Cell 
+                                  key={`cell-${index}`} 
+                                  fill={entry.color}
+                                  style={{
+                                    filter: 'drop-shadow(0 2px 4px rgba(0,0,0,0.1))',
+                                    transition: 'all 0.3s ease'
+                                  }}
+                                />
+                              ))}
+                            </Pie>
+                            <Tooltip 
+                              content={({ active, payload }) => {
+                                if (active && payload && payload.length) {
+                                  const data = payload[0].payload
+                                  return (
+                                    <Box sx={{
+                                      bgcolor: 'background.paper',
+                                      p: 1.5,
+                                      borderRadius: 2,
+                                      boxShadow: 3,
+                                      border: '1px solid',
+                                      borderColor: 'divider'
+                                    }}>
+                                      <Typography variant="body1" sx={{ fontWeight: 600 }}>
+                                        {data.range} Mbps
+                                      </Typography>
+                                      <Typography variant="body2" color="text.secondary">
+                                        {data.count} tests ({((data.count / (analyticsData.validTests || 1)) * 100).toFixed(1)}%)
+                                      </Typography>
+                                    </Box>
+                                  )
+                                }
+                                return null
+                              }}
+                            />
+                          </PieChart>
+                        </ResponsiveContainer>
+                        <Box sx={{
+                          position: 'absolute',
+                          top: '50%',
+                          left: '50%',
+                          transform: 'translate(-50%, -50%)',
+                          textAlign: 'center',
+                          pointerEvents: 'none'
+                        }}>
+                          <Typography variant="h2" sx={{ fontWeight: 700, lineHeight: 1 }}>
+                            {analyticsData.validTests || 0}
+                          </Typography>
+                          <Typography variant="h6" color="text.secondary" sx={{ display: 'block' }}>
+                            Total Tests
+                          </Typography>
+                        </Box>
+                      </Box>
+                    ))}
+                    size="small"
+                    sx={{ color: 'text.secondary' }}
+                  >
+                    <FullscreenIcon />
+                  </IconButton>
+                </Box>
                 
                 {/* Compact Chart with Center Legend */}
                 <Box sx={{ position: 'relative', mb: 2 }}>
@@ -415,9 +562,124 @@ const Analytics = () => {
           <Grid item xs={12} md={6}>
             <Card>
               <CardContent>
-                <Typography variant="h6" gutterBottom sx={{ mb: 3, fontWeight: 600 }}>
-                  Performance Issues
-                </Typography>
+                <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 3 }}>
+                  <Typography variant="h6" sx={{ fontWeight: 600 }}>
+                    ⚠️ Performance Issues
+                  </Typography>
+                  <IconButton 
+                    onClick={() => {
+                      const validTests = data?.filter(test => !test.hasError && test.downloadSpeed != null) || []
+                      const slowTests = validTests.filter(test => test.downloadSpeed < 2).length
+                      const fastTests = validTests.filter(test => test.downloadSpeed >= 10).length
+                      const highLatency = validTests.filter(test => test.latency > 100).length
+                      const inconsistent = validTests.filter((test, index, arr) => {
+                        if (index === 0) return false
+                        const prev = arr[index - 1]
+                        return Math.abs(test.downloadSpeed - prev.downloadSpeed) > 5
+                      }).length
+
+                      const issues = [
+                        {
+                          label: 'Slow Speed Tests',
+                          count: slowTests,
+                          percentage: ((slowTests / validTests.length) * 100).toFixed(1),
+                          color: '#E53E3E',
+                          icon: '🐌',
+                          severity: slowTests > validTests.length * 0.3 ? 'high' : slowTests > validTests.length * 0.15 ? 'medium' : 'low'
+                        },
+                        {
+                          label: 'High Latency',
+                          count: highLatency,
+                          percentage: ((highLatency / validTests.length) * 100).toFixed(1),
+                          color: '#ED8936',
+                          icon: '⏳',
+                          severity: highLatency > validTests.length * 0.25 ? 'high' : highLatency > validTests.length * 0.1 ? 'medium' : 'low'
+                        },
+                        {
+                          label: 'Speed Variations',
+                          count: inconsistent,
+                          percentage: ((inconsistent / validTests.length) * 100).toFixed(1),
+                          color: '#ECC94B',
+                          icon: '📊',
+                          severity: inconsistent > validTests.length * 0.4 ? 'high' : inconsistent > validTests.length * 0.2 ? 'medium' : 'low'
+                        }
+                      ]
+
+                      openFullscreen('Performance Issues Analysis', (
+                        <Box sx={{ height: '100%', p: 2 }}>
+                          <Grid container spacing={3} sx={{ height: '100%' }}>
+                            <Grid item xs={12} md={6}>
+                              <ResponsiveContainer width="100%" height="60%">
+                                <BarChart data={issues} margin={{ top: 20, right: 30, left: 20, bottom: 20 }}>
+                                  <CartesianGrid strokeDasharray="3 3" stroke={theme.palette.divider} />
+                                  <XAxis 
+                                    dataKey="label" 
+                                    stroke={theme.palette.text.secondary}
+                                    fontSize={12}
+                                    angle={-45}
+                                    textAnchor="end"
+                                    height={80}
+                                  />
+                                  <YAxis 
+                                    stroke={theme.palette.text.secondary}
+                                    fontSize={12}
+                                  />
+                                  <Tooltip 
+                                    contentStyle={{
+                                      backgroundColor: theme.palette.background.paper,
+                                      border: `1px solid ${theme.palette.divider}`,
+                                      borderRadius: '8px'
+                                    }}
+                                  />
+                                  <Bar 
+                                    dataKey="count" 
+                                    fill={(entry) => entry.color}
+                                    name="Issues Count"
+                                  />
+                                </BarChart>
+                              </ResponsiveContainer>
+                            </Grid>
+                            <Grid item xs={12} md={6}>
+                              <Box sx={{ height: '100%', display: 'flex', flexDirection: 'column', gap: 2 }}>
+                                {issues.map((issue, index) => (
+                                  <Box key={index} sx={{
+                                    p: 3,
+                                    borderRadius: 2,
+                                    bgcolor: issue.severity === 'high' ? 'rgba(229, 62, 62, 0.1)' : 
+                                             issue.severity === 'medium' ? 'rgba(237, 137, 54, 0.1)' : 
+                                             'rgba(72, 187, 120, 0.1)',
+                                    border: '1px solid',
+                                    borderColor: issue.severity === 'high' ? 'rgba(229, 62, 62, 0.3)' : 
+                                                issue.severity === 'medium' ? 'rgba(237, 137, 54, 0.3)' : 
+                                                'rgba(72, 187, 120, 0.3)'
+                                  }}>
+                                    <Typography variant="h4" sx={{ 
+                                      fontWeight: 700,
+                                      color: issue.color,
+                                      mb: 1
+                                    }}>
+                                      {issue.icon} {issue.count}
+                                    </Typography>
+                                    <Typography variant="h6" sx={{ fontWeight: 600, mb: 1 }}>
+                                      {issue.label}
+                                    </Typography>
+                                    <Typography variant="body2" color="text.secondary">
+                                      {issue.percentage}% of total tests
+                                    </Typography>
+                                  </Box>
+                                ))}
+                              </Box>
+                            </Grid>
+                          </Grid>
+                        </Box>
+                      ))
+                    }}
+                    size="small"
+                    sx={{ color: 'text.secondary' }}
+                  >
+                    <FullscreenIcon />
+                  </IconButton>
+                </Box>
                 
                 {(() => {
                   const validTests = data?.filter(test => !test.hasError && test.downloadSpeed != null) || []
@@ -535,9 +797,112 @@ const Analytics = () => {
           <Grid item xs={12} md={6}>
             <Card>
               <CardContent>
-                <Typography variant="h6" gutterBottom sx={{ mb: 3, fontWeight: 600 }}>
-                  Network Reliability Score
-                </Typography>
+                <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 3 }}>
+                  <Typography variant="h6" sx={{ fontWeight: 600 }}>
+                    🛡️ Network Reliability Score
+                  </Typography>
+                  <IconButton 
+                    onClick={() => {
+                      const validTests = data?.filter(test => !test.hasError && test.downloadSpeed != null) || []
+                      const totalTests = data?.length || 1
+                      
+                      const speedScore = validTests.filter(test => test.downloadSpeed >= 5).length / validTests.length * 100
+                      const latencyScore = validTests.filter(test => test.latency <= 50).length / validTests.length * 100
+                      const consistencyScore = 100 - (validTests.reduce((acc, test, index, arr) => {
+                        if (index === 0) return 0
+                        const prev = arr[index - 1]
+                        return acc + Math.abs(test.downloadSpeed - prev.downloadSpeed)
+                      }, 0) / (validTests.length - 1) * 5)
+                      const uptimeScore = (validTests.length / totalTests) * 100
+                      
+                      const overallScore = (speedScore * 0.3 + latencyScore * 0.25 + Math.max(0, consistencyScore) * 0.25 + uptimeScore * 0.2).toFixed(1)
+                      
+                      const reliabilityData = [
+                        { name: 'Speed Quality', score: speedScore.toFixed(1), color: '#1565C0' },
+                        { name: 'Latency Quality', score: latencyScore.toFixed(1), color: '#ED8936' },
+                        { name: 'Consistency', score: Math.max(0, consistencyScore).toFixed(1), color: '#2E7D32' },
+                        { name: 'Uptime', score: uptimeScore.toFixed(1), color: '#7B1FA2' }
+                      ]
+
+                      openFullscreen('Network Reliability Analysis', (
+                        <Box sx={{ height: '100%', p: 2 }}>
+                          <Grid container spacing={3} sx={{ height: '100%' }}>
+                            <Grid item xs={12} md={6}>
+                              <Box sx={{ textAlign: 'center', mb: 4 }}>
+                                <Typography variant="h2" sx={{ 
+                                  fontWeight: 700,
+                                  color: overallScore >= 80 ? '#48BB78' : overallScore >= 60 ? '#ED8936' : '#E53E3E'
+                                }}>
+                                  {overallScore}
+                                </Typography>
+                                <Typography variant="h6" color="text.secondary">
+                                  Overall Reliability Score
+                                </Typography>
+                              </Box>
+                              <ResponsiveContainer width="100%" height="60%">
+                                <BarChart data={reliabilityData} margin={{ top: 20, right: 30, left: 20, bottom: 20 }}>
+                                  <CartesianGrid strokeDasharray="3 3" stroke={theme.palette.divider} />
+                                  <XAxis 
+                                    dataKey="name" 
+                                    stroke={theme.palette.text.secondary}
+                                    fontSize={12}
+                                    angle={-45}
+                                    textAnchor="end"
+                                    height={80}
+                                  />
+                                  <YAxis 
+                                    domain={[0, 100]}
+                                    stroke={theme.palette.text.secondary}
+                                    fontSize={12}
+                                  />
+                                  <Tooltip 
+                                    contentStyle={{
+                                      backgroundColor: theme.palette.background.paper,
+                                      border: `1px solid ${theme.palette.divider}`,
+                                      borderRadius: '8px'
+                                    }}
+                                  />
+                                  <Bar 
+                                    dataKey="score" 
+                                    fill={(entry) => entry.color}
+                                    name="Score (%)"
+                                  />
+                                </BarChart>
+                              </ResponsiveContainer>
+                            </Grid>
+                            <Grid item xs={12} md={6}>
+                              <Box sx={{ height: '100%', display: 'flex', flexDirection: 'column', gap: 2 }}>
+                                {reliabilityData.map((item, index) => (
+                                  <Box key={index} sx={{
+                                    p: 3,
+                                    borderRadius: 2,
+                                    bgcolor: 'rgba(255,255,255,0.05)',
+                                    border: '1px solid rgba(255,255,255,0.1)'
+                                  }}>
+                                    <Typography variant="h4" sx={{ 
+                                      fontWeight: 700,
+                                      color: item.color,
+                                      mb: 1
+                                    }}>
+                                      {item.score}%
+                                    </Typography>
+                                    <Typography variant="h6" sx={{ fontWeight: 600 }}>
+                                      {item.name}
+                                    </Typography>
+                                  </Box>
+                                ))}
+                              </Box>
+                            </Grid>
+                          </Grid>
+                        </Box>
+                      ))
+                    }}
+                    size="small"
+                    sx={{ color: 'text.secondary' }}
+                  >
+                    <FullscreenIcon />
+                  </IconButton>
+                </Box>
                 
                 {(() => {
                   const validTests = data?.filter(test => !test.hasError && test.downloadSpeed != null) || []
@@ -950,13 +1315,111 @@ const Analytics = () => {
                     <>
                       {/* Header with Stats */}
                       <Box sx={{ mb: 3, display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 2 }}>
-                        <Box>
-                          <Typography variant="h6" sx={{ fontWeight: 600, display: 'flex', alignItems: 'center', gap: 1 }}>
-                            📥 Speed Threshold Analysis
-                          </Typography>
-                          <Typography variant="body2" color="text.secondary">
-                            {filteredData.length} tests • {poorSpeedCount} slow • {speedPerformanceRate}% good speed
-                          </Typography>
+                        <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, flexGrow: 1 }}>
+                          <Box>
+                            <Typography variant="h6" sx={{ fontWeight: 600, display: 'flex', alignItems: 'center', gap: 1 }}>
+                              📥 Speed Threshold Analysis
+                            </Typography>
+                            <Typography variant="body2" color="text.secondary">
+                              {filteredData.length} tests • {poorSpeedCount} slow • {speedPerformanceRate}% good speed
+                            </Typography>
+                          </Box>
+                          <IconButton 
+                            onClick={() => openFullscreen('Speed Threshold Analysis', (
+                              <Box sx={{ height: '100%', p: 2 }}>
+                                <Box sx={{ mb: 3, display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 2 }}>
+                                  <FormControl size="small" sx={{ minWidth: 120 }}>
+                                    <InputLabel>Date Range</InputLabel>
+                                    <Select
+                                      value={speedDateRange}
+                                      label="Date Range"
+                                      onChange={(e) => setSpeedDateRange(e.target.value)}
+                                    >
+                                      <MenuItem value="today">Today</MenuItem>
+                                      <MenuItem value="yesterday">Yesterday</MenuItem>
+                                      <MenuItem value="7d">Last 7 Days</MenuItem>
+                                      <MenuItem value="30d">Last 30 Days</MenuItem>
+                                      <MenuItem value="all">All Time</MenuItem>
+                                    </Select>
+                                  </FormControl>
+                                  <Box sx={{ flex: 1, minWidth: 200, maxWidth: 400 }}>
+                                    <Typography variant="body2" sx={{ mb: 1 }}>
+                                      Minimum Speed: <strong>{speedThreshold} Mbps</strong>
+                                    </Typography>
+                                    <input
+                                      type="range"
+                                      min="1"
+                                      max="20"
+                                      step="0.5"
+                                      value={speedThreshold}
+                                      onChange={(e) => setSpeedThreshold(parseFloat(e.target.value))}
+                                      style={{
+                                        width: '100%',
+                                        height: '6px',
+                                        borderRadius: '3px',
+                                        background: `linear-gradient(to right, #E53E3E 0%, #ED8936 50%, #48BB78 100%)`,
+                                        outline: 'none',
+                                        appearance: 'none',
+                                        cursor: 'pointer'
+                                      }}
+                                    />
+                                  </Box>
+                                </Box>
+                                <ResponsiveContainer width="100%" height="85%">
+                                  <ComposedChart data={analysisData} margin={{ top: 20, right: 30, left: 20, bottom: 20 }}>
+                                    <CartesianGrid strokeDasharray="3 3" stroke={theme.palette.divider} opacity={0.3} />
+                                    <XAxis 
+                                      dataKey="index"
+                                      stroke={theme.palette.text.secondary}
+                                      fontSize={12}
+                                      interval="preserveStartEnd"
+                                    />
+                                    <YAxis 
+                                      stroke={theme.palette.text.secondary}
+                                      fontSize={12}
+                                      label={{ value: 'Speed (Mbps)', angle: -90, position: 'insideLeft' }}
+                                    />
+                                    <ReferenceLine 
+                                      y={speedThreshold} 
+                                      stroke="#ED8936" 
+                                      strokeDasharray="8 4"
+                                      strokeWidth={2}
+                                      label={{ value: `${speedThreshold} Mbps`, position: 'topLeft' }}
+                                    />
+                                    <Tooltip 
+                                      contentStyle={{
+                                        backgroundColor: theme.palette.background.paper,
+                                        border: `1px solid ${theme.palette.divider}`,
+                                        borderRadius: '8px',
+                                        boxShadow: '0 4px 12px rgba(0,0,0,0.15)'
+                                      }}
+                                    />
+                                    <Scatter
+                                      dataKey="downloadSpeed"
+                                      fill={(entry) => entry?.isPoorSpeed ? '#E53E3E' : '#1565C0'}
+                                      name="Download Speed"
+                                    />
+                                    <Line
+                                      type="monotone"
+                                      dataKey={(data) => {
+                                        const avg = analysisData.reduce((acc, test) => acc + test.downloadSpeed, 0) / analysisData.length
+                                        return avg
+                                      }}
+                                      stroke="#1565C0"
+                                      strokeWidth={1}
+                                      strokeDasharray="4 4"
+                                      dot={false}
+                                      name="Average Speed"
+                                    />
+                                  </ComposedChart>
+                                </ResponsiveContainer>
+                              </Box>
+                            ))}
+                            size="small"
+                            sx={{ color: 'text.secondary' }}
+                          >
+                            <FullscreenIcon />
+                          </IconButton>
                         </Box>
                         
                         <Box sx={{ 
@@ -1225,13 +1688,114 @@ const Analytics = () => {
                     <>
                       {/* Header with Stats */}
                       <Box sx={{ mb: 3, display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 2 }}>
-                        <Box>
-                          <Typography variant="h6" sx={{ fontWeight: 600, display: 'flex', alignItems: 'center', gap: 1 }}>
-                            ⏱️ Latency Threshold Analysis
-                          </Typography>
-                          <Typography variant="body2" color="text.secondary">
-                            {filteredData.length} tests • {poorLatencyCount} high latency • {latencyPerformanceRate}% good latency
-                          </Typography>
+                        <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, flexGrow: 1 }}>
+                          <Box>
+                            <Typography variant="h6" sx={{ fontWeight: 600, display: 'flex', alignItems: 'center', gap: 1 }}>
+                              ⏱️ Latency Threshold Analysis
+                            </Typography>
+                            <Typography variant="body2" color="text.secondary">
+                              {filteredData.length} tests • {poorLatencyCount} high latency • {latencyPerformanceRate}% good latency
+                            </Typography>
+                          </Box>
+                          <IconButton 
+                            onClick={() => openFullscreen('Latency Threshold Analysis', (
+                              <Box sx={{ height: '100%', p: 2 }}>
+                                <Box sx={{ mb: 3, display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 2 }}>
+                                  <FormControl size="small" sx={{ minWidth: 120 }}>
+                                    <InputLabel>Date Range</InputLabel>
+                                    <Select
+                                      value={latencyDateRange}
+                                      label="Date Range"
+                                      onChange={(e) => setLatencyDateRange(e.target.value)}
+                                    >
+                                      <MenuItem value="today">Today</MenuItem>
+                                      <MenuItem value="yesterday">Yesterday</MenuItem>
+                                      <MenuItem value="7d">Last 7 Days</MenuItem>
+                                      <MenuItem value="30d">Last 30 Days</MenuItem>
+                                      <MenuItem value="all">All Time</MenuItem>
+                                    </Select>
+                                  </FormControl>
+                                  <Box sx={{ flex: 1, minWidth: 200, maxWidth: 400 }}>
+                                    <Typography variant="body2" sx={{ mb: 1 }}>
+                                      Maximum Latency: <strong>{latencyThreshold} ms</strong>
+                                    </Typography>
+                                    <input
+                                      type="range"
+                                      min="20"
+                                      max="300"
+                                      step="10"
+                                      value={latencyThreshold}
+                                      onChange={(e) => setLatencyThreshold(parseInt(e.target.value))}
+                                      style={{
+                                        width: '100%',
+                                        height: '6px',
+                                        borderRadius: '3px',
+                                        background: `linear-gradient(to right, #48BB78 0%, #ECC94B 50%, #E53E3E 100%)`,
+                                        outline: 'none',
+                                        appearance: 'none',
+                                        cursor: 'pointer'
+                                      }}
+                                    />
+                                  </Box>
+                                </Box>
+                                <ResponsiveContainer width="100%" height="85%">
+                                  <ComposedChart data={analysisData} margin={{ top: 20, right: 30, left: 20, bottom: 20 }}>
+                                    <CartesianGrid strokeDasharray="3 3" stroke={theme.palette.divider} opacity={0.3} />
+                                    <XAxis 
+                                      dataKey="index"
+                                      stroke={theme.palette.text.secondary}
+                                      fontSize={12}
+                                      interval="preserveStartEnd"
+                                    />
+                                    <YAxis 
+                                      stroke={theme.palette.text.secondary}
+                                      fontSize={12}
+                                      label={{ value: 'Latency (ms)', angle: -90, position: 'insideLeft' }}
+                                    />
+                                    <ReferenceLine 
+                                      y={latencyThreshold} 
+                                      stroke="#E53E3E" 
+                                      strokeDasharray="8 4"
+                                      strokeWidth={2}
+                                      label={{ value: `${latencyThreshold} ms`, position: 'topLeft' }}
+                                    />
+                                    <Tooltip 
+                                      contentStyle={{
+                                        backgroundColor: theme.palette.background.paper,
+                                        border: `1px solid ${theme.palette.divider}`,
+                                        borderRadius: '8px',
+                                        boxShadow: '0 4px 12px rgba(0,0,0,0.15)'
+                                      }}
+                                    />
+                                    <Line
+                                      type="monotone"
+                                      dataKey="latency"
+                                      stroke="#ED8936"
+                                      strokeWidth={2}
+                                      connectNulls={false}
+                                      name="Latency"
+                                    />
+                                    <Line
+                                      type="monotone"
+                                      dataKey={(data) => {
+                                        const avg = analysisData.reduce((acc, test) => acc + (test.latency || 0), 0) / analysisData.length
+                                        return avg
+                                      }}
+                                      stroke="#ED8936"
+                                      strokeWidth={1}
+                                      strokeDasharray="4 4"
+                                      dot={false}
+                                      name="Average Latency"
+                                    />
+                                  </ComposedChart>
+                                </ResponsiveContainer>
+                              </Box>
+                            ))}
+                            size="small"
+                            sx={{ color: 'text.secondary' }}
+                          >
+                            <FullscreenIcon />
+                          </IconButton>
                         </Box>
                         
                         <Box sx={{ 
@@ -1444,6 +2008,41 @@ const Analytics = () => {
 
         </Grid>
       </motion.div>
+
+      {/* Fullscreen Chart Dialog */}
+      <Dialog
+        open={!!fullscreenChart}
+        onClose={() => setFullscreenChart(null)}
+        maxWidth={false}
+        fullWidth
+        PaperProps={{
+          sx: {
+            width: '95vw',
+            height: '90vh',
+            maxWidth: 'none',
+            maxHeight: 'none',
+          }
+        }}
+      >
+        <AppBar sx={{ position: 'relative', bgcolor: 'background.paper', color: 'text.primary' }} elevation={0}>
+          <Toolbar>
+            <Typography sx={{ flex: 1 }} variant="h6" component="div">
+              {fullscreenChart?.title || 'Chart'}
+            </Typography>
+            <IconButton
+              edge="end"
+              color="inherit"
+              onClick={() => setFullscreenChart(null)}
+              aria-label="close"
+            >
+              <CloseIcon />
+            </IconButton>
+          </Toolbar>
+        </AppBar>
+        <DialogContent sx={{ p: 3, height: 'calc(100% - 64px)' }}>
+          {fullscreenChart?.content}
+        </DialogContent>
+      </Dialog>
     </Container>
   )
 }

@@ -8,7 +8,12 @@ import {
   Chip,
   Card,
   CardContent,
-  useTheme
+  useTheme,
+  IconButton,
+  Dialog,
+  DialogContent,
+  AppBar,
+  Toolbar
 } from '@mui/material'
 import { motion } from 'framer-motion'
 import { 
@@ -29,13 +34,21 @@ import {
   Speed as SpeedIcon,
   Upload as UploadIcon,
   NetworkCheck as LatencyIcon,
-  Wifi as WifiIcon 
+  Wifi as WifiIcon,
+  Fullscreen as FullscreenIcon,
+  Close as CloseIcon
 } from '@mui/icons-material'
 
 const Realtime = () => {
   const theme = useTheme()
   const { data, stats, loading, error } = useSpeedtestData()
   const [realtimeData, setRealtimeData] = useState([])
+  const [fullscreenChart, setFullscreenChart] = useState(null)
+
+  // Helper function to open chart in fullscreen
+  const openFullscreen = (title, content) => {
+    setFullscreenChart({ title, content })
+  }
 
   // Get last 24 hours of data
   useEffect(() => {
@@ -150,9 +163,70 @@ const Realtime = () => {
           <Grid item xs={12} lg={8}>
             <Card sx={{ height: 400 }}>
               <CardContent>
-                <Typography variant="h6" gutterBottom>
-                  Speed Trends (Last 24 Hours)
-                </Typography>
+                <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
+                  <Typography variant="h6" sx={{ fontWeight: 600 }}>
+                    📈 Speed Trends (Last 24 Hours)
+                  </Typography>
+                  <IconButton 
+                    onClick={() => openFullscreen('Speed Trends (Last 24 Hours)', (
+                      <ResponsiveContainer width="100%" height="100%">
+                        <AreaChart data={realtimeData}>
+                          <defs>
+                            <linearGradient id="downloadGradient" x1="0" y1="0" x2="0" y2="1">
+                              <stop offset="5%" stopColor="#1565C0" stopOpacity={0.3}/>
+                              <stop offset="95%" stopColor="#1565C0" stopOpacity={0}/>
+                            </linearGradient>
+                            <linearGradient id="uploadGradient" x1="0" y1="0" x2="0" y2="1">
+                              <stop offset="5%" stopColor="#48BB78" stopOpacity={0.3}/>
+                              <stop offset="95%" stopColor="#48BB78" stopOpacity={0}/>
+                            </linearGradient>
+                          </defs>
+                          <CartesianGrid strokeDasharray="3 3" stroke={theme.palette.divider} />
+                          <XAxis 
+                            dataKey="time" 
+                            stroke={theme.palette.text.secondary}
+                            fontSize={14}
+                          />
+                          <YAxis 
+                            stroke={theme.palette.text.secondary}
+                            fontSize={14}
+                            label={{ value: 'Speed (Mbps)', angle: -90, position: 'insideLeft' }}
+                          />
+                          <Tooltip 
+                            contentStyle={{
+                              backgroundColor: theme.palette.background.paper,
+                              border: `1px solid ${theme.palette.divider}`,
+                              borderRadius: '8px'
+                            }}
+                          />
+                          <Area
+                            type="monotone"
+                            dataKey="downloadSpeed"
+                            stackId="1"
+                            stroke="#1565C0"
+                            fill="url(#downloadGradient)"
+                            strokeWidth={2}
+                            name="Download (Mbps)"
+                          />
+                          <Area
+                            type="monotone"
+                            dataKey="uploadSpeed"
+                            stackId="2"
+                            stroke="#48BB78"
+                            fill="url(#uploadGradient)"
+                            strokeWidth={2}
+                            name="Upload (Mbps)"
+                          />
+                        </AreaChart>
+                      </ResponsiveContainer>
+                    ))}
+                    size="small"
+                    sx={{ color: 'text.secondary' }}
+                    title="Enter Fullscreen"
+                  >
+                    <FullscreenIcon />
+                  </IconButton>
+                </Box>
                 <ResponsiveContainer width="100%" height={320}>
                   <AreaChart data={realtimeData}>
                     <defs>
@@ -209,9 +283,51 @@ const Realtime = () => {
           <Grid item xs={12} lg={4}>
             <Card sx={{ height: 400 }}>
               <CardContent>
-                <Typography variant="h6" gutterBottom>
-                  Latency Monitor
-                </Typography>
+                <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
+                  <Typography variant="h6" sx={{ fontWeight: 600 }}>
+                    ⏱️ Latency Monitor
+                  </Typography>
+                  <IconButton 
+                    onClick={() => openFullscreen('Latency Monitor (Last 24 Hours)', (
+                      <ResponsiveContainer width="100%" height="100%">
+                        <LineChart data={realtimeData}>
+                          <CartesianGrid strokeDasharray="3 3" stroke={theme.palette.divider} />
+                          <XAxis 
+                            dataKey="time" 
+                            stroke={theme.palette.text.secondary}
+                            fontSize={14}
+                          />
+                          <YAxis 
+                            stroke={theme.palette.text.secondary}
+                            fontSize={14}
+                            label={{ value: 'Latency (ms)', angle: -90, position: 'insideLeft' }}
+                          />
+                          <Tooltip 
+                            contentStyle={{
+                              backgroundColor: theme.palette.background.paper,
+                              border: `1px solid ${theme.palette.divider}`,
+                              borderRadius: '8px'
+                            }}
+                          />
+                          <Line
+                            type="monotone"
+                            dataKey="latency"
+                            stroke="#ED8936"
+                            strokeWidth={3}
+                            dot={{ fill: '#ED8936', strokeWidth: 2, r: 4 }}
+                            activeDot={{ r: 6 }}
+                            name="Latency (ms)"
+                          />
+                        </LineChart>
+                      </ResponsiveContainer>
+                    ))}
+                    size="small"
+                    sx={{ color: 'text.secondary' }}
+                    title="Enter Fullscreen"
+                  >
+                    <FullscreenIcon />
+                  </IconButton>
+                </Box>
                 <ResponsiveContainer width="100%" height={320}>
                   <LineChart data={realtimeData}>
                     <CartesianGrid strokeDasharray="3 3" stroke={theme.palette.divider} />
@@ -246,6 +362,41 @@ const Realtime = () => {
           </Grid>
         </Grid>
       </motion.div>
+
+      {/* Fullscreen Chart Dialog */}
+      <Dialog
+        open={!!fullscreenChart}
+        onClose={() => setFullscreenChart(null)}
+        maxWidth={false}
+        fullWidth
+        PaperProps={{
+          sx: {
+            width: '95vw',
+            height: '90vh',
+            maxWidth: 'none',
+            maxHeight: 'none',
+          }
+        }}
+      >
+        <AppBar sx={{ position: 'relative', bgcolor: 'background.paper', color: 'text.primary' }} elevation={0}>
+          <Toolbar>
+            <Typography sx={{ flex: 1 }} variant="h6" component="div">
+              {fullscreenChart?.title || 'Chart'}
+            </Typography>
+            <IconButton
+              edge="end"
+              color="inherit"
+              onClick={() => setFullscreenChart(null)}
+              aria-label="close"
+            >
+              <CloseIcon />
+            </IconButton>
+          </Toolbar>
+        </AppBar>
+        <DialogContent sx={{ p: 3, height: 'calc(100% - 64px)' }}>
+          {fullscreenChart?.content}
+        </DialogContent>
+      </Dialog>
     </Container>
   )
 }

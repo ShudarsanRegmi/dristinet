@@ -10,14 +10,17 @@ import {
   ToggleButtonGroup,
   Chip,
   IconButton,
-  Menu,
-  MenuItem,
   FormControlLabel,
   Checkbox,
   Select,
   FormControl,
   InputLabel,
-  Divider
+  MenuItem,
+  Divider,
+  Dialog,
+  DialogContent,
+  AppBar,
+  Toolbar
 } from '@mui/material'
 import { motion } from 'framer-motion'
 import { format, subDays, subHours, subWeeks } from 'date-fns'
@@ -25,15 +28,15 @@ import {
   ShowChart as LineIcon,
   ScatterPlot as PointIcon,
   Timeline as AreaIcon,
-  MoreVert as MoreIcon,
   Fullscreen as FullscreenIcon,
-  DateRange as DateRangeIcon
+  DateRange as DateRangeIcon,
+  Close as CloseIcon
 } from '@mui/icons-material'
 
 const SpeedChart = ({ data, title, type = 'points', showTimeRange = true, isDayView = false }) => {
   const theme = useTheme()
   const [chartType, setChartType] = useState(type || 'points')
-  const [anchorEl, setAnchorEl] = useState(null)
+
   const [isFullscreen, setIsFullscreen] = useState(false)
   const [selectedPoints, setSelectedPoints] = useState([])
   const [showDownload, setShowDownload] = useState(true)
@@ -239,17 +242,8 @@ const SpeedChart = ({ data, title, type = 'points', showTimeRange = true, isDayV
     }
   }
 
-  const handleMenuOpen = (event) => {
-    setAnchorEl(event.currentTarget)
-  }
-
-  const handleMenuClose = () => {
-    setAnchorEl(null)
-  }
-
   const toggleFullscreen = () => {
     setIsFullscreen(!isFullscreen)
-    setAnchorEl(null)
   }
 
   const handlePlotlyEvent = (eventData) => {
@@ -395,22 +389,15 @@ const SpeedChart = ({ data, title, type = 'points', showTimeRange = true, isDayV
     )
   }
 
-  const cardHeight = isFullscreen ? '90vh' : 650
-  const plotHeight = isFullscreen ? '85vh' : 520
+  const cardHeight = 650
+  const plotHeight = 520
 
   return (
+    <>
     <motion.div
       initial={{ opacity: 0, scale: 0.9 }}
       animate={{ opacity: 1, scale: 1 }}
       transition={{ duration: 0.5 }}
-      style={{
-        position: isFullscreen ? 'fixed' : 'static',
-        top: isFullscreen ? '5vh' : 'auto',
-        left: isFullscreen ? '5vw' : 'auto',
-        width: isFullscreen ? '90vw' : '100%',
-        height: isFullscreen ? '90vh' : 'auto',
-        zIndex: isFullscreen ? 1300 : 'auto',
-      }}
     >
       <Card sx={{ height: cardHeight, bgcolor: 'background.paper' }}>
         <CardContent sx={{ height: '100%', display: 'flex', flexDirection: 'column' }}>
@@ -458,22 +445,12 @@ const SpeedChart = ({ data, title, type = 'points', showTimeRange = true, isDayV
               
               <IconButton
                 size="small"
-                onClick={handleMenuOpen}
-                sx={{ ml: 1 }}
+                onClick={toggleFullscreen}
+                sx={{ ml: 1, color: 'text.secondary' }}
+                title="Enter Fullscreen"
               >
-                <MoreIcon />
+                <FullscreenIcon />
               </IconButton>
-              
-              <Menu
-                anchorEl={anchorEl}
-                open={Boolean(anchorEl)}
-                onClose={handleMenuClose}
-              >
-                <MenuItem onClick={toggleFullscreen}>
-                  <FullscreenIcon sx={{ mr: 1 }} />
-                  {isFullscreen ? 'Exit Fullscreen' : 'Fullscreen'}
-                </MenuItem>
-              </Menu>
             </Box>
           </Box>
 
@@ -621,22 +598,57 @@ const SpeedChart = ({ data, title, type = 'points', showTimeRange = true, isDayV
           </Box>
         </CardContent>
       </Card>
-
-      {isFullscreen && (
-        <Box
-          sx={{
-            position: 'fixed',
-            top: 0,
-            left: 0,
-            width: '100vw',
-            height: '100vh',
-            bgcolor: 'rgba(0, 0, 0, 0.5)',
-            zIndex: 1299,
-          }}
-          onClick={toggleFullscreen}
-        />
-      )}
     </motion.div>
+
+    {/* Fullscreen Chart Dialog */}
+    <Dialog
+      open={isFullscreen}
+      onClose={toggleFullscreen}
+      maxWidth={false}
+      fullWidth
+      PaperProps={{
+        sx: {
+          width: '95vw',
+          height: '90vh',
+          maxWidth: 'none',
+          maxHeight: 'none',
+        }
+      }}
+    >
+      <AppBar sx={{ position: 'relative', bgcolor: 'background.paper', color: 'text.primary' }} elevation={0}>
+        <Toolbar>
+          <Typography sx={{ flex: 1 }} variant="h6" component="div">
+            {title}{showTimeRange ? ` - ${getTimeRangeLabel()}` : ''}
+          </Typography>
+          <IconButton
+            edge="end"
+            color="inherit"
+            onClick={toggleFullscreen}
+            aria-label="close"
+          >
+            <CloseIcon />
+          </IconButton>
+        </Toolbar>
+      </AppBar>
+      <DialogContent sx={{ p: 3, height: 'calc(100% - 64px)' }}>
+        <Box sx={{ width: '100%', height: '100%' }}>
+          <Plot
+            data={addReferenceLines(createTraces())}
+            layout={{
+              ...layout,
+              autosize: true,
+              width: undefined,
+              height: undefined,
+              font: { color: theme.palette.text.primary }
+            }}
+            config={config}
+            style={{ width: '100%', height: '100%' }}
+            useResizeHandler
+          />
+        </Box>
+      </DialogContent>
+    </Dialog>
+    </>
   )
 }
 
