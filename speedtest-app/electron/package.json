@@ -1,37 +1,102 @@
 {
-  "name": "speedtest-electron",
+  "name": "speedtest-monitor",
   "version": "1.0.0",
-  "description": "Speedtest Dashboard Electron App",
+  "description": "Desktop application for monitoring internet speed",
   "main": "main.js",
+  "homepage": "./",
+  "author": {
+    "name": "Speedtest Monitor Team",
+    "email": "contact@speedtest-monitor.app"
+  },
+  "license": "MIT",
+  "private": true,
   "scripts": {
-    "electron": "electron .",
-    "electron-dev": "ELECTRON_IS_DEV=true electron .",
-    "build": "npm run build --prefix ../frontend",
-    "electron-build": "electron-builder",
-    "dist": "npm run build && npm run electron-build"
+    "start": "electron .",
+    "dev": "cross-env NODE_ENV=development electron .",
+    "build": "npm run build:frontend && electron-builder",
+    "build:frontend": "cd ../frontend && npm run build && cp -r dist ../electron/",
+    "pack": "electron-builder --dir",
+    "dist": "npm run build",
+    "dist:linux": "npm run build && electron-builder --linux",
+    "dist:windows": "npm run build && electron-builder --windows",
+    "dist:mac": "npm run build && electron-builder --mac",
+    "dist:all": "npm run build && electron-builder --mac --windows --linux",
+    "postinstall": "electron-builder install-app-deps"
+  },
+  "dependencies": {
+    "better-sqlite3": "^11.3.0",
+    "node-cron": "^3.0.3",
+    "express": "^4.21.1",
+    "cors": "^2.8.5",
+    "fs-extra": "^11.2.0"
   },
   "devDependencies": {
-    "electron": "^27.0.0",
-    "electron-builder": "^24.6.4"
+    "electron": "^32.2.0",
+    "electron-builder": "^25.1.7",
+    "cross-env": "^7.0.3"
   },
   "build": {
-    "appId": "com.speedtest.dashboard",
-    "productName": "Speedtest Dashboard",
+    "appId": "com.speedtest.monitor",
+    "productName": "Speedtest Monitor",
     "directories": {
-      "output": "dist"
+      "output": "build"
     },
     "files": [
       "main.js",
-      "../frontend/dist/**/*"
+      "preload.js",
+      "installer.js",
+      "service-manager.js",
+      "dist/**/*"
+    ],
+    "extraResources": [
+      "resources/**/*"
     ],
     "mac": {
-      "category": "public.app-category.utilities"
+      "category": "public.app-category.utilities",
+      "icon": "assets/icon.icns",
+      "hardenedRuntime": true,
+      "entitlements": "assets/entitlements.mac.plist",
+      "entitlementsInherit": "assets/entitlements.mac.plist",
+      "gatekeeperAssess": false
     },
     "win": {
-      "target": "nsis"
+      "target": [
+        {
+          "target": "nsis",
+          "arch": ["x64"]
+        }
+      ],
+      "icon": "assets/icon.ico"
     },
     "linux": {
-      "target": "AppImage"
+      "target": [
+        {
+          "target": "AppImage",
+          "arch": ["x64"]
+        }
+      ],
+      "icon": "assets/icon.png",
+      "category": "Network",
+      "maintainer": "Speedtest Monitor Team <contact@speedtest-monitor.app>",
+      "description": "Monitor your internet speed over time with automated testing and beautiful analytics"
+    },
+    "nsis": {
+      "oneClick": false,
+      "allowToChangeInstallationDirectory": true,
+      "createDesktopShortcut": true,
+      "createStartMenuShortcut": true,
+      "shortcutName": "Speedtest Monitor"
+    },
+    "deb": {
+      "depends": ["nodejs (>= 18.0.0)"]
+    },
+    "rpm": {
+      "depends": ["nodejs >= 18.0.0"]
+    },
+    "publish": {
+      "provider": "github",
+      "owner": "yourusername",
+      "repo": "speedtest-monitor"
     }
   }
 }

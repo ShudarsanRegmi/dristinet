@@ -1,0 +1,50 @@
+{
+  "name": "speedtest-monitor-backend",
+  "version": "2.0.0",
+  "description": "Cross-platform speedtest monitoring service with SQLite database",
+  "type": "module",
+  "main": "server.js",
+  "scripts": {
+    "dev": "nodemon server.js",
+    "start": "node server.js",
+    "setup-db": "node ../scripts/setup-database.js init",
+    "test-db": "node ../scripts/setup-database.js test",
+    "db-stats": "node ../scripts/setup-database.js stats",
+    "collector": "node ../services/speedtest-collector.js",
+    "install-linux": "sudo bash ../scripts/install-linux.sh install",
+    "uninstall-linux": "sudo bash ../scripts/install-linux.sh uninstall",
+    "service-status": "systemctl status speedtest-collector@speedtest.service speedtest-dashboard@speedtest.service",
+    "service-logs": "journalctl -u speedtest-collector@speedtest.service -u speedtest-dashboard@speedtest.service -f",
+    "migrate-from-text": "node ../scripts/migrate-from-text.js"
+  },
+  "dependencies": {
+    "express": "^4.18.2",
+    "sqlite3": "^5.1.6",
+    "sqlite": "^4.2.1",
+    "cors": "^2.8.5",
+    "helmet": "^7.0.0",
+    "compression": "^1.7.4",
+    "winston": "^3.10.0",
+    "node-cron": "^3.0.2",
+    "ws": "^8.14.0"
+  },
+  "devDependencies": {
+    "nodemon": "^3.0.1"
+  },
+  "keywords": [
+    "speedtest",
+    "network",
+    "monitoring",
+    "linux",
+    "systemd",
+    "sqlite"
+  ],
+  "author": "Your Name",
+  "license": "MIT",
+  "engines": {
+    "node": ">=18.0.0"
+  },
+  "os": [
+    "linux"
+  ]
+}

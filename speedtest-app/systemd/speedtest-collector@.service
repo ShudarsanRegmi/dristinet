@@ -1,0 +1,44 @@
+[Unit]
+Description=Speedtest Network Monitor - Data Collector
+After=network-online.target
+Wants=network-online.target
+Documentation=https://github.com/your-repo/speedtest-monitor
+
+[Service]
+Type=simple
+User=%i
+Group=%i
+WorkingDirectory=/opt/speedtest-monitor
+ExecStart=/usr/bin/node services/speedtest-collector.js
+Restart=always
+RestartSec=10
+RestartPreventExitStatus=0
+
+# Environment
+Environment=NODE_ENV=production
+Environment=LOG_LEVEL=info
+
+# Security settings
+NoNewPrivileges=yes
+ProtectSystem=strict
+ProtectHome=yes
+ReadWritePaths=/opt/speedtest-monitor/data
+ReadWritePaths=/tmp
+PrivateTmp=yes
+ProtectControlGroups=yes
+ProtectKernelModules=yes
+ProtectKernelTunables=yes
+RestrictRealtime=yes
+RestrictSUIDSGID=yes
+
+# Resource limits
+MemoryMax=256M
+CPUQuota=50%
+
+# Logging
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=speedtest-collector
+
+[Install]
+WantedBy=multi-user.target

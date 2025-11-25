@@ -16,26 +16,25 @@ export const useSpeedtestData = () => {
   const fetchData = async () => {
     try {
       setLoading(true)
-      const { networkFilter, interfaceFilter } = getCurrentFilters()
+      setError(null)
       
-      const params = new URLSearchParams()
-      if (networkFilter !== 'all') {
-        params.append('network', networkFilter)
-      }
-      if (interfaceFilter !== 'all') {
-        params.append('interface', interfaceFilter)
-      }
+      // Use the updated API
+      const result = await speedtestAPI.getAllData()
+      
+      // Transform the data to match the expected format
+      const transformedData = result.map(item => ({
+        timestamp: item.timestamp,
+        downloadSpeed: item.download_mbps,
+        uploadSpeed: item.upload_mbps,
+        latency: item.ping_ms,
+        jitter: item.jitter_ms,
+        serverName: item.server_name,
+        serverLocation: item.server_location,
+        isp: item.isp,
+        hasError: false
+      }))
 
-      const url = params.toString() ? `/api/speedtest-data-filtered?${params}` : '/api/speedtest-data'
-      const response = await fetch(url)
-      const result = await response.json()
-
-      if (result.success) {
-        setData(result.data)
-        setError(null)
-      } else {
-        throw new Error(result.error || 'Failed to fetch data')
-      }
+      setData(transformedData)
     } catch (err) {
       setError(err.message)
       console.error('Error fetching speedtest data:', err)
@@ -125,11 +124,9 @@ export const useDailyStats = () => {
   const fetchDailyStats = async () => {
     try {
       setLoading(true)
-      const result = await speedtestAPI.getDailyStats()
-      if (result.success) {
-        setDailyData(result.data)
-        setError(null)
-      }
+      const result = await speedtestAPI.getStats()
+      setDailyData(result)
+      setError(null)
     } catch (err) {
       setError(err.message)
       console.error('Error fetching daily stats:', err)
