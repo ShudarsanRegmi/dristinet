@@ -203,8 +203,8 @@ class SpeedtestCollector {
                 INSERT INTO speedtest_results (
                     timestamp, download_mbps, upload_mbps, ping_ms, jitter_ms,
                     server_id, server_name, server_location, isp, external_ip,
-                    internal_ip, packet_loss, result_url, raw_data
-                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                    internal_ip, packet_loss, result_url, raw_data, error_message
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             `);
 
             stmt.run(
@@ -212,13 +212,43 @@ class SpeedtestCollector {
                 result.ping_ms, result.jitter_ms, result.server_id,
                 result.server_name, result.server_location, result.isp,
                 result.external_ip, result.internal_ip, result.packet_loss,
-                result.result_url, result.raw_data
+                result.result_url, result.raw_data, result.error_message
             );
 
-            console.log(`Saved speedtest result: ${result.download_mbps} Mbps down, ${result.upload_mbps} Mbps up`);
+            if (result.error_message) {
+                console.log(`Saved failed speedtest result: ${result.error_message}`);
+            } else {
+                console.log(`Saved speedtest result: ${result.download_mbps} Mbps down, ${result.upload_mbps} Mbps up`);
+            }
         } catch (error) {
             console.error('Failed to save result:', error);
             throw error;
+        }
+    }
+
+    saveFailedResult(error) {
+        try {
+            const failedResult = {
+                timestamp: new Date().toISOString(),
+                download_mbps: null,
+                upload_mbps: null,
+                ping_ms: null,
+                jitter_ms: null,
+                server_id: null,
+                server_name: null,
+                server_location: null,
+                isp: null,
+                external_ip: null,
+                internal_ip: null,
+                packet_loss: null,
+                result_url: null,
+                raw_data: null,
+                error_message: error.message || error.toString()
+            };
+
+            this.saveResult(failedResult);
+        } catch (saveError) {
+            console.error('Failed to save failed result:', saveError);
         }
     }
 
@@ -258,6 +288,10 @@ class SpeedtestCollector {
             
         } catch (error) {
             console.error('Speedtest failed:', error);
+            
+            // Save the failed test result to database
+            this.saveFailedResult(error);
+            
             this.updateStatus('error', error.message);
         }
     }

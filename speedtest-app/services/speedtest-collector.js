@@ -55,7 +55,7 @@ class SpeedtestCollector {
     } catch (error) {
       console.error('⚠️  Failed to load configuration, using defaults')
       this.config = {
-        test_interval_minutes: '30',
+        test_interval_minutes: '1',  // Changed from 30 to 1 minute
         auto_test_enabled: 'true',
         max_records_keep: '10000'
       }
@@ -74,7 +74,7 @@ class SpeedtestCollector {
       return
     }
 
-    const intervalMinutes = parseInt(this.config.test_interval_minutes) || 30
+    const intervalMinutes = parseInt(this.config.test_interval_minutes) || 1  // Changed default from 30 to 1
     const intervalMs = intervalMinutes * 60 * 1000
 
     console.log(`▶️  Starting scheduled speedtests every ${intervalMinutes} minutes`)
@@ -256,9 +256,9 @@ class SpeedtestCollector {
   getLocalIP() {
     const interfaces = os.networkInterfaces()
     for (const name of Object.keys(interfaces)) {
-      for (const interface of interfaces[name]) {
-        if (interface.family === 'IPv4' && !interface.internal) {
-          return interface.address
+      for (const iface of interfaces[name]) {
+        if (iface.family === 'IPv4' && !iface.internal) {
+          return iface.address
         }
       }
     }

@@ -105,7 +105,8 @@ class SpeedtestAPI {
   // Get all speedtest results
   async getAllData() {
     const response = await this.client.get('/speedtest/results')
-    return this.transformSpeedtestData(response.data)
+    const payload = Array.isArray(response.data) ? response.data : (response.data?.data || [])
+    return this.transformSpeedtestData(payload)
   }
 
   // Get speedtest results for data hooks
@@ -120,14 +121,36 @@ class SpeedtestAPI {
   }
 
   // Get speedtest results with limit
-  async getResults(limit = 100) {
-    const response = await this.client.get(`/speedtest/results?limit=${limit}`)
-    return this.transformSpeedtestData(response.data)
+  async getResults(limit = 100, cursor = null, days = 30) {
+    const params = new URLSearchParams({ limit: String(limit), days: String(days) })
+    if (cursor) {
+      params.append('cursor', cursor)
+    }
+
+    const response = await this.client.get(`/speedtest/results?${params.toString()}`)
+
+    if (Array.isArray(response.data)) {
+      return {
+        data: this.transformSpeedtestData(response.data),
+        pagination: null
+      }
+    }
+
+    return {
+      data: this.transformSpeedtestData(response.data?.data || []),
+      pagination: response.data?.pagination || null
+    }
   }
 
   // Get recent tests
   async getRecentTests(limit = 10) {
-    return this.getResults(limit)
+    const result = await this.getResults(limit)
+    return result.data
+  }
+
+  async getDailyRollup(days = 365) {
+    const response = await this.client.get(`/speedtest/rollup/daily?days=${days}`)
+    return response.data?.data || []
   }
 
   // Run manual speedtest

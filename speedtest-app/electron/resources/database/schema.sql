@@ -4,9 +4,9 @@
 CREATE TABLE IF NOT EXISTS speedtest_results (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     timestamp DATETIME DEFAULT CURRENT_TIMESTAMP,
-    download_mbps REAL NOT NULL,
-    upload_mbps REAL NOT NULL,
-    ping_ms REAL NOT NULL,
+    download_mbps REAL,
+    upload_mbps REAL,
+    ping_ms REAL,
     jitter_ms REAL,
     server_id TEXT,
     server_name TEXT,

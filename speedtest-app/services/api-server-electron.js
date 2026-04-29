@@ -90,16 +90,64 @@ class SpeedtestAPI {
         // Get speedtest results
         this.app.get('/api/speedtest/results', (req, res) => {
             try {
-                const { limit = 100, days = 30 } = req.query;
-                
-                const results = this.db.prepare(`
-                    SELECT * FROM speedtest_results 
-                    WHERE timestamp > datetime('now', '-${days} days')
-                    ORDER BY timestamp DESC 
-                    LIMIT ?
-                `).all(parseInt(limit));
+                const { limit = 100, days = 30, cursor = null } = req.query;
+                const maxLimit = Math.min(parseInt(limit, 10) || 100, 2000);
 
-                res.json(results);
+                let query = `
+                    SELECT * FROM speedtest_results
+                    WHERE timestamp > datetime('now', '-${days} days')
+                `;
+                const params = [];
+
+                if (cursor) {
+                    query += ' AND timestamp < ?';
+                    params.push(cursor);
+                }
+
+                query += ' ORDER BY timestamp DESC LIMIT ?';
+                params.push(maxLimit);
+
+                const results = this.db.prepare(query).all(...params);
+                const nextCursor = results.length ? results[results.length - 1].timestamp : null;
+
+                res.json({
+                    data: results,
+                    pagination: {
+                        limit: maxLimit,
+                        nextCursor,
+                        hasMore: results.length === maxLimit
+                    }
+                });
+            } catch (error) {
+                res.status(500).json({ error: error.message });
+            }
+        });
+
+        // Get daily rollups for long-term trend charts
+        this.app.get('/api/speedtest/rollup/daily', (req, res) => {
+            try {
+                const { days = 365 } = req.query;
+
+                const rows = this.db.prepare(`
+                    SELECT
+                        date(timestamp) AS day,
+                        COUNT(*) AS samples,
+                        AVG(download_mbps) AS avg_download,
+                        AVG(upload_mbps) AS avg_upload,
+                        AVG(ping_ms) AS avg_ping,
+                        MIN(download_mbps) AS min_download,
+                        MAX(download_mbps) AS max_download,
+                        MIN(upload_mbps) AS min_upload,
+                        MAX(upload_mbps) AS max_upload,
+                        MIN(ping_ms) AS min_ping,
+                        MAX(ping_ms) AS max_ping
+                    FROM speedtest_results
+                    WHERE timestamp > datetime('now', '-${days} days')
+                    GROUP BY date(timestamp)
+                    ORDER BY day DESC
+                `).all();
+
+                res.json({ data: rows });
             } catch (error) {
                 res.status(500).json({ error: error.message });
             }

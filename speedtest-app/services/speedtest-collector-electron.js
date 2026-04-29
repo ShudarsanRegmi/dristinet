@@ -14,6 +14,7 @@ class SpeedtestCollector {
         this.dbPath = path.join(this.appDataPath, 'data', 'speedtest.db');
         this.isRunning = false;
         this.intervalId = null;
+        this.resultColumns = null;
         
         this.initializeConfig();
         this.initializeDatabase();
@@ -108,6 +109,9 @@ class SpeedtestCollector {
                 CREATE INDEX IF NOT EXISTS idx_upload ON speedtest_results(upload_mbps);
             `);
 
+            const columns = this.db.prepare('PRAGMA table_info(speedtest_results)').all();
+            this.resultColumns = new Set(columns.map((c) => c.name));
+
             console.log('Database initialized successfully');
         } catch (error) {
             console.error('Failed to initialize database:', error);
@@ -172,7 +176,13 @@ class SpeedtestCollector {
             isp: result.isp || null,
             external_ip: result.interface?.externalIp || null,
             internal_ip: networkInfo.internal_ip,
-            packet_loss: result.packetLoss?.toFixed(2) || 0,
+            interface: networkInfo.interface,
+            wifi_name: networkInfo.wifi_name,
+            hostname: os.hostname(),
+            user_name: os.userInfo().username,
+            uptime: `up ${Math.floor(os.uptime() / 3600)} hours`,
+            packet_loss_percent: result.packetLoss?.toFixed(2) || 0,
+            test_type: 'auto',
             result_url: result.result?.url || null,
             raw_data: JSON.stringify(result)
         };
@@ -181,12 +191,14 @@ class SpeedtestCollector {
     getNetworkInfo() {
         const interfaces = os.networkInterfaces();
         let internal_ip = null;
+        let interfaceType = 'Unknown';
 
         for (const [name, addrs] of Object.entries(interfaces)) {
             if (addrs) {
                 for (const addr of addrs) {
                     if (addr.family === 'IPv4' && !addr.internal) {
                         internal_ip = addr.address;
+                        interfaceType = name.startsWith('wl') ? 'WiFi' : 'Ethernet';
                         break;
                     }
                 }
@@ -194,26 +206,25 @@ class SpeedtestCollector {
             if (internal_ip) break;
         }
 
-        return { internal_ip };
+        return {
+            internal_ip,
+            interface: interfaceType,
+            wifi_name: null
+        };
     }
 
     saveResult(result) {
         try {
-            const stmt = this.db.prepare(`
-                INSERT INTO speedtest_results (
-                    timestamp, download_mbps, upload_mbps, ping_ms, jitter_ms,
-                    server_id, server_name, server_location, isp, external_ip,
-                    internal_ip, packet_loss, result_url, raw_data
-                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-            `);
+            const entries = Object.entries(result).filter(([key]) => this.resultColumns.has(key));
+            const columns = entries.map(([key]) => key);
+            const values = entries.map(([, value]) => value);
+            const placeholders = columns.map(() => '?').join(', ');
 
-            stmt.run(
-                result.timestamp, result.download_mbps, result.upload_mbps,
-                result.ping_ms, result.jitter_ms, result.server_id,
-                result.server_name, result.server_location, result.isp,
-                result.external_ip, result.internal_ip, result.packet_loss,
-                result.result_url, result.raw_data
+            const stmt = this.db.prepare(
+                `INSERT INTO speedtest_results (${columns.join(', ')}) VALUES (${placeholders})`
             );
+
+            stmt.run(...values);
 
             console.log(`Saved speedtest result: ${result.download_mbps} Mbps down, ${result.upload_mbps} Mbps up`);
         } catch (error) {
