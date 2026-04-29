@@ -3,14 +3,10 @@ import {
   Box,
   Grid,
   Typography,
-  CircularProgress,
   Alert,
   Container,
   Paper,
-  FormControl,
-  InputLabel,
-  Select,
-  MenuItem,
+  TextField,
   Card,
   CardContent,
   Chip,
@@ -37,6 +33,7 @@ import { useSpeedtestData } from '../hooks/useSpeedtestData'
 const DayWise = () => {
   const { data, loading, error } = useSpeedtestData()
   const [selectedDate, setSelectedDate] = useState('')
+  const [dateError, setDateError] = useState('')
 
   // Get unique dates from data
   const availableDates = useMemo(() => {
@@ -213,6 +210,24 @@ const DayWise = () => {
     return `${hour.toString().padStart(2, '0')}:00`
   }
 
+  const handleDateChange = (event) => {
+    const nextDate = event.target.value
+
+    if (!nextDate) {
+      setSelectedDate('')
+      setDateError('')
+      return
+    }
+
+    if (!availableDates.includes(nextDate)) {
+      setDateError('No test data is available on this date.')
+      return
+    }
+
+    setDateError('')
+    setSelectedDate(nextDate)
+  }
+
   return (
     <Container maxWidth="xl" sx={{ mt: 2, mb: 4 }}>
       {/* Date Selection */}
@@ -225,22 +240,31 @@ const DayWise = () => {
           <Typography variant="subtitle1" sx={{ color: 'text.secondary', mb: 2 }}>
             Detailed analysis for a specific day with hourly breakdowns and performance insights
           </Typography>
-          
-          <FormControl sx={{ minWidth: 200 }}>
-            <InputLabel>Select Date</InputLabel>
-            <Select
-              value={selectedDate}
+
+          <Box sx={{ display: 'flex', alignItems: 'flex-start', gap: 2, flexWrap: 'wrap' }}>
+            <TextField
+              type="date"
               label="Select Date"
-              onChange={(e) => setSelectedDate(e.target.value)}
-              startAdornment={<CalendarIcon sx={{ mr: 1 }} />}
-            >
-              {availableDates.map(date => (
-                <MenuItem key={date} value={date}>
-                  {format(parseISO(date), 'MMM dd, yyyy')}
-                </MenuItem>
-              ))}
-            </Select>
-          </FormControl>
+              value={selectedDate}
+              onChange={handleDateChange}
+              InputLabelProps={{ shrink: true }}
+              error={Boolean(dateError)}
+              helperText={dateError || `${availableDates.length} dates with available test data`}
+              inputProps={{
+                min: availableDates[availableDates.length - 1],
+                max: availableDates[0],
+              }}
+              sx={{ minWidth: 240 }}
+            />
+
+            <Chip
+              icon={<CalendarIcon />}
+              label={selectedDate ? format(parseISO(selectedDate), 'MMM dd, yyyy') : 'Choose a date'}
+              variant="outlined"
+              color={selectedDate ? 'primary' : 'default'}
+              sx={{ mt: 0.5 }}
+            />
+          </Box>
         </Box>
       </motion.div>
 

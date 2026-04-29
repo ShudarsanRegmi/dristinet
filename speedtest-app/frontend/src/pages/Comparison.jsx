@@ -20,7 +20,12 @@ import {
   TableCell,
   TableContainer,
   TableHead,
-  TableRow
+  TableRow,
+  IconButton,
+  Dialog,
+  DialogContent,
+  AppBar,
+  Toolbar,
 } from '@mui/material'
 import { motion } from 'framer-motion'
 import { 
@@ -46,7 +51,9 @@ import { useSpeedtestData } from '../hooks/useSpeedtestData'
 import { 
   Compare as CompareIcon,
   Schedule as ScheduleIcon,
-  Wifi as WifiIcon
+  Wifi as WifiIcon,
+  Fullscreen as FullscreenIcon,
+  Close as CloseIcon,
 } from '@mui/icons-material'
 
 const Comparison = () => {
@@ -55,6 +62,7 @@ const Comparison = () => {
   const [comparisonType, setComparisonType] = useState('timeperiods')
   const [period1, setPeriod1] = useState('lastWeek')
   const [period2, setPeriod2] = useState('thisWeek')
+  const [fullscreenChart, setFullscreenChart] = useState(null)
 
   const comparisonData = useMemo(() => {
     if (!data || data.length === 0) return {}
@@ -213,6 +221,83 @@ const Comparison = () => {
       rawData2: data2
     }
   }, [data, comparisonType, period1, period2])
+
+  const openFullscreen = (title, content) => {
+    setFullscreenChart({ title, content })
+  }
+
+  const closeFullscreen = () => {
+    setFullscreenChart(null)
+  }
+
+  const renderMetricsComparisonChart = () => (
+    <ResponsiveContainer width="100%" height="100%">
+      <BarChart data={comparisonData.comparisonChartData}>
+        <CartesianGrid strokeDasharray="3 3" stroke={theme.palette.divider} />
+        <XAxis 
+          dataKey="metric" 
+          stroke={theme.palette.text.secondary}
+          fontSize={12}
+        />
+        <YAxis 
+          stroke={theme.palette.text.secondary}
+          fontSize={12}
+        />
+        <Tooltip 
+          contentStyle={{
+            backgroundColor: theme.palette.background.paper,
+            border: `1px solid ${theme.palette.divider}`,
+            borderRadius: '8px'
+          }}
+        />
+        <Bar 
+          dataKey={comparisonData.labels?.period1} 
+          fill="#1565C0" 
+          name={comparisonData.labels?.period1}
+          radius={[6, 6, 0, 0]}
+        />
+        <Bar 
+          dataKey={comparisonData.labels?.period2} 
+          fill="#48BB78" 
+          name={comparisonData.labels?.period2}
+          radius={[6, 6, 0, 0]}
+        />
+      </BarChart>
+    </ResponsiveContainer>
+  )
+
+  const renderRadarComparisonChart = () => (
+    <ResponsiveContainer width="100%" height="100%">
+      <RadarChart data={comparisonData.radarData}>
+        <PolarGrid stroke={theme.palette.divider} />
+        <PolarAngleAxis 
+          dataKey="metric" 
+          tick={{ fill: theme.palette.text.secondary, fontSize: 12 }}
+        />
+        <PolarRadiusAxis 
+          angle={0} 
+          domain={[0, 100]}
+          tick={{ fill: theme.palette.text.secondary, fontSize: 10 }}
+        />
+        <Radar
+          name={comparisonData.labels?.period1}
+          dataKey={comparisonData.labels?.period1}
+          stroke="#1565C0"
+          fill="#1565C0"
+          fillOpacity={0.2}
+          strokeWidth={2}
+        />
+        <Radar
+          name={comparisonData.labels?.period2}
+          dataKey={comparisonData.labels?.period2}
+          stroke="#48BB78"
+          fill="#48BB78"
+          fillOpacity={0.2}
+          strokeWidth={2}
+        />
+      </RadarChart>
+    </ResponsiveContainer>
+  )
 
   if (loading) {
     return (
@@ -378,40 +463,17 @@ const Comparison = () => {
           <Grid item xs={12} lg={8}>
             <Card>
               <CardContent>
-                <Typography variant="h6" gutterBottom>
-                  Performance Metrics Comparison
-                </Typography>
-                <ResponsiveContainer width="100%" height={300}>
-                  <BarChart data={comparisonData.comparisonChartData}>
-                    <CartesianGrid strokeDasharray="3 3" stroke={theme.palette.divider} />
-                    <XAxis 
-                      dataKey="metric" 
-                      stroke={theme.palette.text.secondary}
-                      fontSize={12}
-                    />
-                    <YAxis 
-                      stroke={theme.palette.text.secondary}
-                      fontSize={12}
-                    />
-                    <Tooltip 
-                      contentStyle={{
-                        backgroundColor: theme.palette.background.paper,
-                        border: `1px solid ${theme.palette.divider}`,
-                        borderRadius: '8px'
-                      }}
-                    />
-                    <Bar 
-                      dataKey={comparisonData.labels?.period1} 
-                      fill="#1565C0" 
-                      name={comparisonData.labels?.period1}
-                    />
-                    <Bar 
-                      dataKey={comparisonData.labels?.period2} 
-                      fill="#48BB78" 
-                      name={comparisonData.labels?.period2}
-                    />
-                  </BarChart>
-                </ResponsiveContainer>
+                <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 1 }}>
+                  <Typography variant="h6" gutterBottom>
+                    Performance Metrics Comparison
+                  </Typography>
+                  <IconButton onClick={() => openFullscreen('Performance Metrics Comparison', renderMetricsComparisonChart())}>
+                    <FullscreenIcon />
+                  </IconButton>
+                </Box>
+                <Box sx={{ height: 300 }}>
+                  {renderMetricsComparisonChart()}
+                </Box>
               </CardContent>
             </Card>
           </Grid>
@@ -420,44 +482,40 @@ const Comparison = () => {
           <Grid item xs={12} lg={4}>
             <Card>
               <CardContent>
-                <Typography variant="h6" gutterBottom>
-                  Overall Performance
-                </Typography>
-                <ResponsiveContainer width="100%" height={300}>
-                  <RadarChart data={comparisonData.radarData}>
-                    <PolarGrid stroke={theme.palette.divider} />
-                    <PolarAngleAxis 
-                      dataKey="metric" 
-                      tick={{ fill: theme.palette.text.secondary, fontSize: 12 }}
-                    />
-                    <PolarRadiusAxis 
-                      angle={0} 
-                      domain={[0, 100]}
-                      tick={{ fill: theme.palette.text.secondary, fontSize: 10 }}
-                    />
-                    <Radar
-                      name={comparisonData.labels?.period1}
-                      dataKey={comparisonData.labels?.period1}
-                      stroke="#1565C0"
-                      fill="#1565C0"
-                      fillOpacity={0.2}
-                      strokeWidth={2}
-                    />
-                    <Radar
-                      name={comparisonData.labels?.period2}
-                      dataKey={comparisonData.labels?.period2}
-                      stroke="#48BB78"
-                      fill="#48BB78"
-                      fillOpacity={0.2}
-                      strokeWidth={2}
-                    />
-                  </RadarChart>
-                </ResponsiveContainer>
+                <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 1 }}>
+                  <Typography variant="h6" gutterBottom>
+                    Overall Performance
+                  </Typography>
+                  <IconButton onClick={() => openFullscreen('Overall Performance', renderRadarComparisonChart())}>
+                    <FullscreenIcon />
+                  </IconButton>
+                </Box>
+                <Box sx={{ height: 300 }}>
+                  {renderRadarComparisonChart()}
+                </Box>
               </CardContent>
             </Card>
           </Grid>
         </Grid>
       </motion.div>
+
+      <Dialog fullScreen open={Boolean(fullscreenChart)} onClose={closeFullscreen}>
+        <AppBar sx={{ position: 'relative' }}>
+          <Toolbar>
+            <Typography sx={{ ml: 2, flex: 1 }} variant="h6" component="div">
+              {fullscreenChart?.title}
+            </Typography>
+            <IconButton edge="end" color="inherit" onClick={closeFullscreen} aria-label="close">
+              <CloseIcon />
+            </IconButton>
+          </Toolbar>
+        </AppBar>
+        <DialogContent sx={{ p: 2, height: 'calc(100vh - 64px)' }}>
+          <Box sx={{ width: '100%', height: '100%' }}>
+            {fullscreenChart?.content}
+          </Box>
+        </DialogContent>
+      </Dialog>
     </Container>
   )
 }

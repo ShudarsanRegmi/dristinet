@@ -182,7 +182,7 @@ const Sidebar = ({ open = true, onToggle }) => {
               <SpeedIcon sx={{ fontSize: 32, color: theme.palette.primary.main }} />
               <Box>
                 <Typography variant="h6" sx={{ fontWeight: 600, color: theme.palette.text.primary }}>
-                  Network Monitor
+                  DristiNet
                 </Typography>
                 <Typography variant="caption" sx={{ color: theme.palette.text.secondary }}>
                   Performance Analytics
