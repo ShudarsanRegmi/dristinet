@@ -13,30 +13,33 @@ export const useSpeedtestData = () => {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState(null)
 
-  const fetchData = async () => {
+  // Fetch recent tests using the backend paginated endpoint.
+  // Default to a reasonably large limit for admin UIs; components can fetch differently later.
+  const fetchData = async ({ limit = 2000, days = 90 } = {}) => {
     try {
       setLoading(true)
       setError(null)
-      
-      // Use the updated API
-      const result = await speedtestAPI.getAllData()
-      
-      // Transform the data to match the expected format
-      const transformedData = result.map(item => ({
+
+      const result = await speedtestAPI.getResults(limit, null, days)
+      const payload = result?.data || []
+
+      // API returns transformed items with frontend-friendly keys (downloadSpeed, uploadSpeed, latency)
+      const transformedData = payload.map(item => ({
         timestamp: item.timestamp,
-        downloadSpeed: item.download_mbps,
-        uploadSpeed: item.upload_mbps,
-        latency: item.ping_ms,
-        jitter: item.jitter_ms,
-        serverName: item.server_name,
-        serverLocation: item.server_location,
+        downloadSpeed: item.downloadSpeed ?? item.download_mbps ?? 0,
+        uploadSpeed: item.uploadSpeed ?? item.upload_mbps ?? 0,
+        latency: item.latency ?? item.ping_ms ?? 0,
+        jitter: item.jitter ?? item.jitter_ms ?? 0,
+        serverName: item.serverName ?? item.server_name,
+        serverLocation: item.serverLocation ?? item.server_location,
         isp: item.isp,
-        hasError: false
+        hasError: item.hasError ?? false,
+        raw: item
       }))
 
       setData(transformedData)
     } catch (err) {
-      setError(err.message)
+      setError(err.message || String(err))
       console.error('Error fetching speedtest data:', err)
     } finally {
       setLoading(false)
@@ -61,59 +64,46 @@ export const useSpeedtestData = () => {
 }
 
 export const useSpeedtestStats = () => {
-  const { data, loading, error } = useSpeedtestData()
+  const [stats, setStats] = useState(null)
+  const [loading, setLoading] = useState(true)
+  const [error, setError] = useState(null)
 
-  const stats = useMemo(() => {
-    if (!data || data.length === 0) return {}
-
-    const validTests = data.filter(item => !item.hasError && item.downloadSpeed != null && item.downloadSpeed > 0)
-    const failedTests = data.filter(item => item.hasError)
-    
-    if (validTests.length === 0) {
-      return {
-        totalTests: data.length,
-        validTests: 0,
-        failedTests: failedTests.length,
-        successRate: 0,
-        avgDownload: 0,
-        avgUpload: 0,
-        avgLatency: 0
+  const fetchStats = async () => {
+    try {
+      setLoading(true)
+      const result = await speedtestAPI.getStats()
+      const s = result?.summary || result || {}
+      const mapped = {
+        totalTests: s.total_tests ?? s.totalTests ?? 0,
+        avgDownload: s.avg_download ?? s.avgDownload ?? 0,
+        avgUpload: s.avg_upload ?? s.avgUpload ?? 0,
+        avgLatency: s.avg_ping ?? s.avgLatency ?? 0,
+        maxDownload: s.max_download ?? s.maxDownload ?? 0,
+        minDownload: s.min_download ?? s.minDownload ?? 0,
+        maxUpload: s.max_upload ?? s.maxUpload ?? 0,
+        minUpload: s.min_upload ?? s.minUpload ?? 0,
+        minLatency: s.min_ping ?? s.minLatency ?? 0,
+        maxLatency: s.max_ping ?? s.maxLatency ?? 0,
+        failedTests: s.failed_tests ?? 0,
+        successRate: s.success_rate ?? (s.total_tests ? ((s.total_tests - (s.failed_tests||0)) / s.total_tests) * 100 : 0),
+        hourly: result.hourly || []
       }
+
+      setStats(mapped)
+      setError(null)
+    } catch (err) {
+      setError(err.message || String(err))
+      console.error('Error fetching stats:', err)
+    } finally {
+      setLoading(false)
     }
+  }
 
-    const downloadSpeeds = validTests.map(t => t.downloadSpeed).filter(speed => speed != null && speed > 0)
-    const uploadSpeeds = validTests.map(t => t.uploadSpeed).filter(speed => speed != null && speed > 0)
-    const latencies = validTests.map(t => t.latency).filter(latency => latency != null && latency > 0)
+  useEffect(() => {
+    fetchStats()
+  }, [])
 
-    console.log('Stats Debug:', {
-      totalTests: data.length,
-      validTests: validTests.length,
-      downloadSpeeds: downloadSpeeds.length,
-      uploadSpeeds: uploadSpeeds.length,
-      latencies: latencies.length,
-      sampleDownload: downloadSpeeds[0],
-      sampleUpload: uploadSpeeds[0],
-      sampleLatency: latencies[0]
-    })
-
-    return {
-      totalTests: data.length,
-      validTests: validTests.length,
-      failedTests: failedTests.length,
-      successRate: (validTests.length / data.length) * 100,
-      avgDownload: downloadSpeeds.length > 0 ? downloadSpeeds.reduce((a, b) => a + b, 0) / downloadSpeeds.length : 0,
-      avgUpload: uploadSpeeds.length > 0 ? uploadSpeeds.reduce((a, b) => a + b, 0) / uploadSpeeds.length : 0,
-      avgLatency: latencies.length > 0 ? latencies.reduce((a, b) => a + b, 0) / latencies.length : 0,
-      maxDownload: downloadSpeeds.length > 0 ? Math.max(...downloadSpeeds) : 0,
-      minDownload: downloadSpeeds.length > 0 ? Math.min(...downloadSpeeds) : 0,
-      maxUpload: uploadSpeeds.length > 0 ? Math.max(...uploadSpeeds) : 0,
-      minUpload: uploadSpeeds.length > 0 ? Math.min(...uploadSpeeds) : 0,
-      maxLatency: latencies.length > 0 ? Math.max(...latencies) : 0,
-      minLatency: latencies.length > 0 ? Math.min(...latencies) : 0,
-    }
-  }, [data])
-
-  return { stats, loading, error }
+  return { stats: stats || {}, loading, error, refetch: fetchStats }
 }
 
 export const useDailyStats = () => {
@@ -140,6 +130,33 @@ export const useDailyStats = () => {
   }, [])
 
   return { dailyData, loading, error, refetch: fetchDailyStats }
+}
+
+export const useDailyRollup = (days = 90) => {
+  const [data, setData] = useState([])
+  const [loading, setLoading] = useState(true)
+  const [error, setError] = useState(null)
+
+  const fetch = async () => {
+    try {
+      setLoading(true)
+      const result = await speedtestAPI.getDailyRollup(days)
+      // result is expected to be an array of { day, samples, avg_download, avg_upload, avg_ping, ... }
+      setData(result || [])
+      setError(null)
+    } catch (err) {
+      setError(err.message || String(err))
+      console.error('Error fetching daily rollup:', err)
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  useEffect(() => {
+    fetch()
+  }, [days])
+
+  return { data, loading, error, refetch: fetch }
 }
 
 // Utility functions for global filters

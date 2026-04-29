@@ -644,32 +644,32 @@ def generate_insights(current, avg_download, avg_upload, avg_latency, download_p
     
     # Download insights
     if download_perc >= 90:
-        insights.append(f"🚀 Excellent! Your download speed ({current_download:.1f} Mbps) is in the top 10% of your tests.")
+        insights.append(f"Excellent! Your download speed ({current_download:.1f} Mbps) is in the top 10% of your tests.")
     elif download_perc >= 75:
-        insights.append(f"👍 Good performance! Your download speed is above 75% of your previous tests.")
+        insights.append(f"Good performance! Your download speed is above 75% of your previous tests.")
     elif download_perc <= 25:
-        insights.append(f"⚠️ Your download speed ({current_download:.1f} Mbps) is below your usual performance.")
+        insights.append(f"Your download speed ({current_download:.1f} Mbps) is below your usual performance.")
     else:
-        insights.append(f"📊 Your download speed ({current_download:.1f} Mbps) is typical for your connection.")
+        insights.append(f"Your download speed ({current_download:.1f} Mbps) is typical for your connection.")
     
     # Upload insights
     if upload_perc >= 90:
-        insights.append(f"📤 Outstanding upload speed ({current_upload:.1f} Mbps)!")
+        insights.append(f"Outstanding upload speed ({current_upload:.1f} Mbps)!")
     elif upload_perc <= 25:
-        insights.append(f"📤 Upload speed ({current_upload:.1f} Mbps) is lower than usual.")
+        insights.append(f"Upload speed ({current_upload:.1f} Mbps) is lower than usual.")
     
     # Latency insights
     if latency_perc >= 90:
-        insights.append(f"⚡ Excellent latency ({current_latency:.0f}ms) - great for gaming and video calls!")
+        insights.append(f"Excellent latency ({current_latency:.0f}ms) - great for gaming and video calls!")
     elif latency_perc <= 25:
-        insights.append(f"🐌 Higher than usual latency ({current_latency:.0f}ms) - may affect real-time activities.")
+        insights.append(f"Higher than usual latency ({current_latency:.0f}ms) - may affect real-time activities.")
     
     # Overall performance
     avg_percentile = (download_perc + upload_perc + latency_perc) / 3
     if avg_percentile >= 80:
-        insights.append("🌟 Overall excellent connection performance!")
+        insights.append("Overall excellent connection performance!")
     elif avg_percentile <= 30:
-        insights.append("🔧 Consider checking your connection - performance is below average.")
+        insights.append("Consider checking your connection - performance is below average.")
     
     return insights
 

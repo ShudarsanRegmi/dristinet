@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react'
+import React, { useState, useEffect, useRef } from 'react'
 import {
   Box,
   Grid,
@@ -36,16 +36,73 @@ import { format } from 'date-fns'
 import StatsCard from '../components/StatsCard'
 
 const LiveSpeedtest = () => {
+  const STORAGE_KEY = 'liveSpeedtestStateV1'
   const [testState, setTestState] = useState('idle') // idle, running, completed, error
   const [testId, setTestId] = useState(null)
   const [progress, setProgress] = useState(0)
   const [result, setResult] = useState(null)
   const [comparison, setComparison] = useState(null)
   const [error, setError] = useState(null)
+  const [hydrated, setHydrated] = useState(false)
+  const pollIntervalRef = useRef(null)
+
+  const clearPolling = () => {
+    if (pollIntervalRef.current) {
+      clearInterval(pollIntervalRef.current)
+      pollIntervalRef.current = null
+    }
+  }
+
+  useEffect(() => {
+    // Restore state when returning to this page after route/tab switch.
+    try {
+      const saved = localStorage.getItem(STORAGE_KEY)
+      if (saved) {
+        const parsed = JSON.parse(saved)
+        setTestState(parsed.testState || 'idle')
+        setTestId(parsed.testId || null)
+        setProgress(parsed.progress || 0)
+        setResult(parsed.result || null)
+        setComparison(parsed.comparison || null)
+        setError(parsed.error || null)
+      }
+    } catch (err) {
+      console.error('Failed to restore live speedtest state:', err)
+    } finally {
+      setHydrated(true)
+    }
+
+    return () => {
+      clearPolling()
+    }
+  }, [])
+
+  useEffect(() => {
+    if (!hydrated) return
+
+    try {
+      localStorage.setItem(
+        STORAGE_KEY,
+        JSON.stringify({
+          testState,
+          testId,
+          progress,
+          result,
+          comparison,
+          error,
+          updatedAt: new Date().toISOString(),
+        })
+      )
+    } catch (err) {
+      console.error('Failed to persist live speedtest state:', err)
+    }
+  }, [hydrated, testState, testId, progress, result, comparison, error])
 
   const startSpeedtest = async () => {
     try {
+      clearPolling()
       setTestState('running')
+      setTestId(null)
       setProgress(0)
       setResult(null)
       setComparison(null)
@@ -58,13 +115,21 @@ const LiveSpeedtest = () => {
         },
       })
 
-      const data = await response.json()
-      
-      if (data.success) {
+      // Safe JSON parse: backend may return empty or non-json on error
+      let data = null
+      try {
+        const text = await response.text()
+        data = text ? JSON.parse(text) : null
+      } catch (err) {
+        console.error('Failed to parse startSpeedtest response as JSON', err)
+        throw new Error('Invalid response from server')
+      }
+
+      if (data && data.success) {
         setTestId(data.test_id)
         pollTestStatus(data.test_id)
       } else {
-        throw new Error(data.error || 'Failed to start speedtest')
+        throw new Error((data && data.error) || 'Failed to start speedtest')
       }
     } catch (err) {
       setTestState('error')
@@ -73,37 +138,61 @@ const LiveSpeedtest = () => {
   }
 
   const pollTestStatus = async (id) => {
-    const pollInterval = setInterval(async () => {
+    clearPolling()
+
+    pollIntervalRef.current = setInterval(async () => {
       try {
         const response = await fetch(`/api/speedtest-status/${id}`)
-        const data = await response.json()
 
-        if (data.success) {
+        let data = null
+        try {
+          const text = await response.text()
+          data = text ? JSON.parse(text) : null
+        } catch (err) {
+          console.error('Failed to parse pollTestStatus response as JSON', err)
+          clearPolling()
+          setTestState('error')
+          setError('Invalid status response from server')
+          return
+        }
+
+        if (data && data.success) {
           const status = data.status
           setProgress(status.progress || 0)
 
           if (status.status === 'completed') {
-            clearInterval(pollInterval)
+            clearPolling()
             setTestState('completed')
             setResult(status.result)
-            
+
             // Get comparison analysis
             if (status.result) {
               await getComparativeAnalysis(status.result)
             }
           } else if (status.status === 'error') {
-            clearInterval(pollInterval)
+            clearPolling()
             setTestState('error')
             setError(status.error || 'Speedtest failed')
           }
+        } else {
+          // Unexpected payload
+          console.error('Unexpected poll status payload', data)
         }
       } catch (err) {
-        clearInterval(pollInterval)
+        clearPolling()
         setTestState('error')
         setError('Failed to get test status')
       }
     }, 1000) // Poll every second
   }
+
+  useEffect(() => {
+    // If user navigates away and returns while a test is still running, resume polling.
+    if (!hydrated) return
+    if (testState === 'running' && testId) {
+      pollTestStatus(testId)
+    }
+  }, [hydrated, testState, testId])
 
   const getComparativeAnalysis = async (testResult) => {
     try {
@@ -116,11 +205,19 @@ const LiveSpeedtest = () => {
           current_result: testResult
         })
       })
+      let data = null
+      try {
+        const text = await response.text()
+        data = text ? JSON.parse(text) : null
+      } catch (err) {
+        console.error('Failed to parse comparative analysis response as JSON', err)
+        return
+      }
 
-      const data = await response.json()
-      
-      if (data.success) {
+      if (data && data.success) {
         setComparison(data.comparison)
+      } else {
+        console.error('Comparative analysis failed or returned invalid payload', data)
       }
     } catch (err) {
       console.error('Failed to get comparative analysis:', err)
@@ -128,12 +225,18 @@ const LiveSpeedtest = () => {
   }
 
   const resetTest = () => {
+    clearPolling()
     setTestState('idle')
     setTestId(null)
     setProgress(0)
     setResult(null)
     setComparison(null)
     setError(null)
+    try {
+      localStorage.removeItem(STORAGE_KEY)
+    } catch (err) {
+      console.error('Failed to clear persisted live speedtest state:', err)
+    }
   }
 
   const getProgressColor = () => {

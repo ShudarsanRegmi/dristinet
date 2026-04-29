@@ -47,7 +47,18 @@ import {
   Upload as UploadIcon,
   NetworkCheck as LatencyIcon,
   Fullscreen as FullscreenIcon,
-  Close as CloseIcon
+  Close as CloseIcon,
+  InsertChart as InsertChartIcon,
+  WarningAmber as WarningIcon,
+  Security as SecurityIcon,
+  CheckCircle as CheckCircleIcon,
+  RocketLaunch as RocketLaunchIcon,
+  Download as DownloadIcon,
+  AccessTime as AccessTimeIcon,
+  TrendingUp as TrendingUpIcon,
+  TrendingDown as TrendingDownIcon,
+  ArrowForward as ArrowForwardIcon,
+  FlashOn as FlashOnIcon
 } from '@mui/icons-material'
 
 const Analytics = () => {
@@ -239,8 +250,9 @@ const Analytics = () => {
             <Card>
               <CardContent>
                 <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
-                  <Typography variant="h6" sx={{ fontWeight: 600 }}>
-                    📊 Hourly Performance Pattern
+                  <Typography variant="h6" sx={{ fontWeight: 600, display: 'flex', alignItems: 'center', gap: 1 }}>
+                    <InsertChartIcon fontSize="small" />
+                    Hourly Performance Pattern
                   </Typography>
                   <IconButton 
                     onClick={() => openFullscreen('Hourly Performance Pattern', (
@@ -346,8 +358,9 @@ const Analytics = () => {
             <Card>
               <CardContent>
                 <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
-                  <Typography variant="h6" sx={{ fontWeight: 600 }}>
-                    📊 Speed Distribution
+                  <Typography variant="h6" sx={{ fontWeight: 600, display: 'flex', alignItems: 'center', gap: 1 }}>
+                    <InsertChartIcon fontSize="small" />
+                    Speed Distribution
                   </Typography>
                   <IconButton 
                     onClick={() => openFullscreen('Speed Distribution', (
@@ -563,8 +576,9 @@ const Analytics = () => {
             <Card>
               <CardContent>
                 <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 3 }}>
-                  <Typography variant="h6" sx={{ fontWeight: 600 }}>
-                    ⚠️ Performance Issues
+                  <Typography variant="h6" sx={{ fontWeight: 600, display: 'flex', alignItems: 'center', gap: 1 }}>
+                    <WarningIcon fontSize="small" />
+                    Performance Issues
                   </Typography>
                   <IconButton 
                     onClick={() => {
@@ -584,7 +598,7 @@ const Analytics = () => {
                           count: slowTests,
                           percentage: ((slowTests / validTests.length) * 100).toFixed(1),
                           color: '#E53E3E',
-                          icon: '🐌',
+                          icon: <RocketLaunchIcon sx={{ transform: 'rotate(-90deg)' }} />,
                           severity: slowTests > validTests.length * 0.3 ? 'high' : slowTests > validTests.length * 0.15 ? 'medium' : 'low'
                         },
                         {
@@ -592,7 +606,7 @@ const Analytics = () => {
                           count: highLatency,
                           percentage: ((highLatency / validTests.length) * 100).toFixed(1),
                           color: '#ED8936',
-                          icon: '⏳',
+                          icon: <AccessTimeIcon />,
                           severity: highLatency > validTests.length * 0.25 ? 'high' : highLatency > validTests.length * 0.1 ? 'medium' : 'low'
                         },
                         {
@@ -600,7 +614,7 @@ const Analytics = () => {
                           count: inconsistent,
                           percentage: ((inconsistent / validTests.length) * 100).toFixed(1),
                           color: '#ECC94B',
-                          icon: '📊',
+                          icon: <InsertChartIcon />,
                           severity: inconsistent > validTests.length * 0.4 ? 'high' : inconsistent > validTests.length * 0.2 ? 'medium' : 'low'
                         }
                       ]
@@ -653,13 +667,15 @@ const Analytics = () => {
                                                 issue.severity === 'medium' ? 'rgba(237, 137, 54, 0.3)' : 
                                                 'rgba(72, 187, 120, 0.3)'
                                   }}>
-                                    <Typography variant="h4" sx={{ 
-                                      fontWeight: 700,
-                                      color: issue.color,
-                                      mb: 1
-                                    }}>
-                                      {issue.icon} {issue.count}
-                                    </Typography>
+                                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 1 }}>
+                                      {issue.icon}
+                                      <Typography variant="h4" sx={{ 
+                                        fontWeight: 700,
+                                        color: issue.color,
+                                      }}>
+                                        {issue.count}
+                                      </Typography>
+                                    </Box>
                                     <Typography variant="h6" sx={{ fontWeight: 600, mb: 1 }}>
                                       {issue.label}
                                     </Typography>
@@ -698,7 +714,7 @@ const Analytics = () => {
                       count: slowTests,
                       percentage: ((slowTests / validTests.length) * 100).toFixed(1),
                       color: '#E53E3E',
-                      icon: '🐌',
+                      icon: <RocketLaunchIcon sx={{ transform: 'rotate(-90deg)' }} />,
                       severity: slowTests > validTests.length * 0.3 ? 'high' : slowTests > validTests.length * 0.15 ? 'medium' : 'low'
                     },
                     {
@@ -706,7 +722,7 @@ const Analytics = () => {
                       count: highLatency,
                       percentage: ((highLatency / validTests.length) * 100).toFixed(1),
                       color: '#ED8936',
-                      icon: '⏳',
+                      icon: <AccessTimeIcon />,
                       severity: highLatency > validTests.length * 0.25 ? 'high' : highLatency > validTests.length * 0.1 ? 'medium' : 'low'
                     },
                     {
@@ -714,7 +730,7 @@ const Analytics = () => {
                       count: inconsistent,
                       percentage: ((inconsistent / validTests.length) * 100).toFixed(1),
                       color: '#ECC94B',
-                      icon: '📊',
+                      icon: <InsertChartIcon />,
                       severity: inconsistent > validTests.length * 0.4 ? 'high' : inconsistent > validTests.length * 0.2 ? 'medium' : 'low'
                     },
                     {
@@ -722,7 +738,7 @@ const Analytics = () => {
                       count: fastTests,
                       percentage: ((fastTests / validTests.length) * 100).toFixed(1),
                       color: '#48BB78',
-                      icon: '🚀',
+                      icon: <CheckCircleIcon />,
                       severity: 'good'
                     }
                   ]
@@ -761,7 +777,7 @@ const Analytics = () => {
                             transition: 'all 0.2s ease'
                           }}>
                             <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
-                              <Typography variant="h6">{issue.icon}</Typography>
+                                      <Box sx={{ display: 'flex', alignItems: 'center' }}>{issue.icon}</Box>
                               <Box>
                                 <Typography variant="body1" sx={{ fontWeight: 500 }}>
                                   {issue.label}
@@ -798,8 +814,9 @@ const Analytics = () => {
             <Card>
               <CardContent>
                 <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 3 }}>
-                  <Typography variant="h6" sx={{ fontWeight: 600 }}>
-                    🛡️ Network Reliability Score
+                  <Typography variant="h6" sx={{ fontWeight: 600, display: 'flex', alignItems: 'center', gap: 1 }}>
+                    <SecurityIcon fontSize="small" />
+                    Network Reliability Score
                   </Typography>
                   <IconButton 
                     onClick={() => {
@@ -987,9 +1004,9 @@ const Analytics = () => {
                       {/* Score Breakdown */}
                       <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1.5 }}>
                         {[
-                          { label: 'Success Rate', value: successRate, weight: '40%', icon: '✅' },
-                          { label: 'Consistency', value: consistencyScore, weight: '30%', icon: '📊' },
-                          { label: 'Performance', value: performanceScore, weight: '30%', icon: '⚡' }
+                          { label: 'Success Rate', value: successRate, weight: '40%', icon: <CheckCircleIcon sx={{ color: '#48BB78' }} /> },
+                            { label: 'Consistency', value: consistencyScore, weight: '30%', icon: <InsertChartIcon /> },
+                            { label: 'Performance', value: performanceScore, weight: '30%', icon: <FlashOnIcon /> }
                         ].map((metric, index) => (
                           <Box key={index} sx={{
                             display: 'flex',
@@ -1000,7 +1017,7 @@ const Analytics = () => {
                             bgcolor: 'rgba(255,255,255,0.05)'
                           }}>
                             <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
-                              <Typography variant="body1">{metric.icon}</Typography>
+                              <Box sx={{ display: 'flex', alignItems: 'center' }}>{metric.icon}</Box>
                               <Box>
                                 <Typography variant="body2" sx={{ fontWeight: 500 }}>
                                   {metric.label}
@@ -1152,7 +1169,7 @@ const Analytics = () => {
                       recent: calculateAvg(recent, 'downloadSpeed'),
                       previous: calculateAvg(previous, 'downloadSpeed'),
                       unit: 'Mbps',
-                      icon: '📥',
+                      icon: <DownloadIcon />,
                       good: 'higher'
                     },
                     {
@@ -1160,7 +1177,7 @@ const Analytics = () => {
                       recent: calculateAvg(recent, 'uploadSpeed'),
                       previous: calculateAvg(previous, 'uploadSpeed'),
                       unit: 'Mbps',
-                      icon: '📤',
+                      icon: <UploadIcon />,
                       good: 'higher'
                     },
                     {
@@ -1168,7 +1185,7 @@ const Analytics = () => {
                       recent: calculateAvg(recent, 'latency'),
                       previous: calculateAvg(previous, 'latency'),
                       unit: 'ms',
-                      icon: '⏱️',
+                      icon: <AccessTimeIcon />,
                       good: 'lower'
                     }
                   ]
@@ -1200,7 +1217,7 @@ const Analytics = () => {
                               transition: 'all 0.2s ease'
                             }}>
                               <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5, mb: 1.5 }}>
-                                <Typography variant="h6">{trend.icon}</Typography>
+                                <Box sx={{ display: 'flex', alignItems: 'center' }}>{trend.icon}</Box>
                                 <Typography variant="body1" sx={{ fontWeight: 500 }}>
                                   {trend.label}
                                 </Typography>
@@ -1235,7 +1252,7 @@ const Analytics = () => {
                                   fontWeight: 600,
                                   color: changeColor
                                 }}>
-                                  {isImproving ? '📈' : change === 0 ? '➡️' : '📉'}
+                                  {isImproving ? <TrendingUpIcon sx={{ verticalAlign: 'middle' }} /> : change === 0 ? <ArrowForwardIcon sx={{ verticalAlign: 'middle' }} /> : <TrendingDownIcon sx={{ verticalAlign: 'middle' }} />}
                                   {Math.abs(change).toFixed(1)}%
                                 </Typography>
                                 <Typography variant="caption" sx={{ color: changeColor }}>
@@ -1542,13 +1559,19 @@ const Analytics = () => {
                                     <Typography variant="body2" sx={{ fontWeight: 600, mb: 1 }}>
                                       Test #{label} - {data.timestamp}
                                     </Typography>
-                                    <Typography variant="body2" sx={{ color: data.isPoorSpeed ? '#E53E3E' : '#48BB78' }}>
-                                      📥 Download: {data.downloadSpeed?.toFixed(2)} Mbps
-                                      {data.isPoorSpeed && ' ⚠️ Below threshold'}
-                                    </Typography>
-                                    <Typography variant="body2">
-                                      📤 Upload: {data.uploadSpeed?.toFixed(2)} Mbps
-                                    </Typography>
+                                      <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}> 
+                                        <DownloadIcon fontSize="small" />
+                                        <Typography variant="body2" sx={{ color: data.isPoorSpeed ? '#E53E3E' : '#48BB78' }}>
+                                          Download: {data.downloadSpeed?.toFixed(2)} Mbps
+                                          {data.isPoorSpeed && (
+                                            <Typography component="span" sx={{ color: '#E53E3E', ml: 0.5 }}>Below threshold</Typography>
+                                          )}
+                                        </Typography>
+                                      </Box>
+                                      <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                                        <UploadIcon fontSize="small" />
+                                        <Typography variant="body2">Upload: {data.uploadSpeed?.toFixed(2)} Mbps</Typography>
+                                      </Box>
                                   </Box>
                                 )
                               }

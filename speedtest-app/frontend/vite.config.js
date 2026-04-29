@@ -19,6 +19,13 @@ export default defineConfig({
     }
   },
   server: {
-    port: 5173
+    port: 5173,
+    // Route frontend /api calls to local backend during development.
+    proxy: {
+      '/api': {
+        target: 'http://localhost:5000',
+        changeOrigin: true,
+      },
+    },
   }
 })

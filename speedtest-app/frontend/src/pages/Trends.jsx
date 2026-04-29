@@ -31,7 +31,7 @@ import {
   ScatterChart,
   Scatter
 } from 'recharts'
-import { useSpeedtestData } from '../hooks/useSpeedtestData'
+import { useSpeedtestData, useDailyRollup, useSpeedtestStats } from '../hooks/useSpeedtestData'
 import LoadingSpinner from '../components/LoadingSpinner'
 import { 
   TrendingUp as TrendingUpIcon,
@@ -41,84 +41,56 @@ import {
 
 const Trends = () => {
   const theme = useTheme()
-  const { data, loading, error } = useSpeedtestData()
+  // Map timeRange to days for rollup
+  const mapRangeToDays = (r) => {
+    switch (r) {
+      case '1d': return 1
+      case '7d': return 7
+      case '30d': return 30
+      case '90d': return 90
+      default: return 365
+    }
+  }
+
   const [timeRange, setTimeRange] = useState('7d')
+  const days = mapRangeToDays(timeRange)
+
+  const { data: dailyData, loading: rollupLoading, error: rollupError } = useDailyRollup(days)
+  const { stats, loading: statsLoading } = useSpeedtestStats()
+  const { data: rawData, loading: rawLoading } = useSpeedtestData()
+  const loading = rollupLoading || statsLoading || rawLoading
+  const error = rollupError
 
   const processedData = useMemo(() => {
-    if (!data || data.length === 0) return {}
-
-    const now = new Date()
-    let startDate
-    
-    switch (timeRange) {
-      case '1d':
-        startDate = new Date(now.getTime() - 24 * 60 * 60 * 1000)
-        break
-      case '7d':
-        startDate = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000)
-        break
-      case '30d':
-        startDate = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000)
-        break
-      case '90d':
-        startDate = new Date(now.getTime() - 90 * 24 * 60 * 60 * 1000)
-        break
-      default:
-        startDate = new Date(0)
-    }
-
-    const filteredData = data.filter(test => 
-      new Date(test.timestamp) >= startDate && !test.hasError
-    )
-
-    // Daily averages
-    const dailyData = {}
-    filteredData.forEach(test => {
-      const date = test.timestamp.split(' ')[0]
-      if (!dailyData[date]) {
-        dailyData[date] = {
-          date,
-          downloadSpeeds: [],
-          uploadSpeeds: [],
-          latencies: []
-        }
-      }
-      dailyData[date].downloadSpeeds.push(test.downloadSpeed)
-      dailyData[date].uploadSpeeds.push(test.uploadSpeed)
-      dailyData[date].latencies.push(test.latency)
-    })
-
-    const trendData = Object.values(dailyData).map(day => ({
-      date: day.date,
-      avgDownload: day.downloadSpeeds.reduce((a, b) => a + b, 0) / day.downloadSpeeds.length,
-      avgUpload: day.uploadSpeeds.reduce((a, b) => a + b, 0) / day.uploadSpeeds.length,
-      avgLatency: day.latencies.reduce((a, b) => a + b, 0) / day.latencies.length,
-      testCount: day.downloadSpeeds.length
+    // trendData comes from daily rollup endpoint
+    const trendData = (dailyData || []).map(d => ({
+      date: d.day,
+      avgDownload: d.avg_download,
+      avgUpload: d.avg_upload,
+      avgLatency: d.avg_ping,
+      testCount: d.samples
     })).sort((a, b) => new Date(a.date) - new Date(b.date))
 
-    // Hourly distribution
+    // hourly distribution comes from stats.hourly if available
     const hourlyData = Array.from({ length: 24 }, (_, hour) => ({
-      hour: `${hour}:00`,
+      hour: `${String(hour).padStart(2, '0')}:00`,
       downloadSpeed: 0,
       uploadSpeed: 0,
       testCount: 0
     }))
 
-    filteredData.forEach(test => {
-      const hour = new Date(test.timestamp).getHours()
-      hourlyData[hour].downloadSpeed += test.downloadSpeed
-      hourlyData[hour].uploadSpeed += test.uploadSpeed
-      hourlyData[hour].testCount += 1
-    })
+    if (stats?.hourly && stats.hourly.length > 0) {
+      stats.hourly.forEach(h => {
+        const idx = Number(h.hour)
+        if (!Number.isNaN(idx) && idx >= 0 && idx < 24) {
+          hourlyData[idx].downloadSpeed = h.avg_download ?? h.avgDownload ?? 0
+          hourlyData[idx].uploadSpeed = h.avg_upload ?? h.avgUpload ?? 0
+          hourlyData[idx].testCount = h.samples ?? 0
+        }
+      })
+    }
 
-    hourlyData.forEach(data => {
-      if (data.testCount > 0) {
-        data.downloadSpeed = data.downloadSpeed / data.testCount
-        data.uploadSpeed = data.uploadSpeed / data.testCount
-      }
-    })
-
-    // Speed distribution
+    // Speed distribution & correlation use recent raw samples (if available)
     const speedRanges = [
       { range: '0-2 Mbps', min: 0, max: 2, count: 0 },
       { range: '2-5 Mbps', min: 2, max: 5, count: 0 },
@@ -126,7 +98,8 @@ const Trends = () => {
       { range: '10+ Mbps', min: 10, max: Infinity, count: 0 },
     ]
 
-    filteredData.forEach(test => {
+    const filteredRaw = (rawData || []).filter(t => !t.hasError && t.downloadSpeed != null)
+    filteredRaw.forEach(test => {
       speedRanges.forEach(range => {
         if (test.downloadSpeed >= range.min && test.downloadSpeed < range.max) {
           range.count++
@@ -134,8 +107,7 @@ const Trends = () => {
       })
     })
 
-    // Performance correlation
-    const correlationData = filteredData.map(test => ({
+    const correlationData = filteredRaw.map(test => ({
       downloadSpeed: test.downloadSpeed,
       latency: test.latency,
       uploadSpeed: test.uploadSpeed
@@ -147,7 +119,7 @@ const Trends = () => {
       speedRanges,
       correlationData
     }
-  }, [data, timeRange])
+  }, [dailyData, stats, rawData, timeRange])
 
   const COLORS = ['#1565C0', '#48BB78', '#ED8936', '#E53E3E']
 
