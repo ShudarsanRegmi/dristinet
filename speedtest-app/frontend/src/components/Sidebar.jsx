@@ -6,6 +6,7 @@ import {
   resetGlobalFilters, 
   getGlobalFilters 
 } from '../hooks/useSpeedtestData'
+import { speedtestAPI } from '../services/api'
 import {
   Drawer,
   List,
@@ -116,21 +117,12 @@ const Sidebar = ({ open = true, onToggle }) => {
 
     const fetchFilterOptions = async () => {
       try {
-        const [networksRes, interfacesRes] = await Promise.all([
-          fetch('/api/filters/networks'),
-          fetch('/api/filters/interfaces')
-        ])
+        const allData = await speedtestAPI.getSpeedtestData({ limit: 2000, days: 365 })
+        const uniqueNetworks = [...new Set(allData.map(item => item.network).filter(Boolean))].sort()
+        const uniqueInterfaces = [...new Set(allData.map(item => item.interface).filter(Boolean))].sort()
 
-        const networksData = await networksRes.json()
-        const interfacesData = await interfacesRes.json()
-
-        if (networksData.success) {
-          setNetworks(networksData.networks)
-        }
-
-        if (interfacesData.success) {
-          setInterfaces(interfacesData.interfaces)
-        }
+        setNetworks(uniqueNetworks)
+        setInterfaces(uniqueInterfaces)
       } catch (err) {
         console.error('Failed to fetch filter options:', err)
       }

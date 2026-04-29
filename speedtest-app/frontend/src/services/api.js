@@ -94,7 +94,8 @@ class SpeedtestAPI {
       isp: item.isp || 'Unknown',
       externalIp: item.external_ip,
       internalIp: item.internal_ip,
-      interface: item.interface || 'Unknown',
+      network: item.wifi_name || item.wifiName || item.network || 'Unknown',
+      interface: item.interface || item.interface_type || 'Unknown',
       packetLoss: item.packet_loss_percent,
       testType: item.test_type || 'auto',
       hasError: item.error_message !== null,
@@ -103,15 +104,15 @@ class SpeedtestAPI {
   }
 
   // Get all speedtest results
-  async getAllData() {
-    const response = await this.client.get('/speedtest/results')
+  async getAllData({ limit = 2000, days = 365 } = {}) {
+    const response = await this.client.get(`/speedtest/results?limit=${limit}&days=${days}`)
     const payload = Array.isArray(response.data) ? response.data : (response.data?.data || [])
     return this.transformSpeedtestData(payload)
   }
 
   // Get speedtest results for data hooks
-  async getSpeedtestData() {
-    return this.getAllData()
+  async getSpeedtestData(options = {}) {
+    return this.getAllData(options)
   }
 
   // Get statistical overview

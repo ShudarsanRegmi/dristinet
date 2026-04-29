@@ -1,6 +1,11 @@
 import { useState, useEffect, useMemo } from 'react'
 import { speedtestAPI } from '../services/api'
 
+const matchesFilter = (value, filter) => {
+  if (!filter || filter === 'all') return true
+  return String(value || 'Unknown').trim() === String(filter).trim()
+}
+
 // Simple hook for fetching speedtest data with URL-based filters
 export const useSpeedtestDataWithFilters = (networkFilter = 'all', interfaceFilter = 'all') => {
   const [data, setData] = useState([])
@@ -11,25 +16,11 @@ export const useSpeedtestDataWithFilters = (networkFilter = 'all', interfaceFilt
   const fetchFilteredData = async () => {
     setLoading(true)
     try {
-      const params = {}
-      if (networkFilter !== 'all') {
-        params.network = networkFilter
-      }
-      if (interfaceFilter !== 'all') {
-        params.interface = interfaceFilter
-      }
-
-      // For now, get all data and filter client-side
-      // TODO: Implement server-side filtering
-      const allData = await speedtestAPI.getSpeedtestData()
-      let filtered = allData
-
-      if (params.network) {
-        filtered = filtered.filter(item => item.network === params.network)
-      }
-      if (params.interface) {
-        filtered = filtered.filter(item => item.interface === params.interface)
-      }
+      const allData = await speedtestAPI.getSpeedtestData({ limit: 2000, days: 365 })
+      const filtered = allData.filter(item =>
+        matchesFilter(item.network, networkFilter) &&
+        matchesFilter(item.interface, interfaceFilter)
+      )
 
       setData(filtered)
       setError(null)
@@ -64,11 +55,10 @@ export const useFilteredSpeedtestData = () => {
   // Fetch available networks and interfaces
   const fetchFilters = async () => {
     try {
-      // Get all data and extract unique networks/interfaces
-      const allData = await speedtestAPI.getSpeedtestData()
-      
-      const uniqueNetworks = [...new Set(allData.map(item => item.network).filter(Boolean))]
-      const uniqueInterfaces = [...new Set(allData.map(item => item.interface).filter(Boolean))]
+      const allData = await speedtestAPI.getSpeedtestData({ limit: 2000, days: 365 })
+
+      const uniqueNetworks = [...new Set(allData.map(item => item.network).filter(Boolean))].sort()
+      const uniqueInterfaces = [...new Set(allData.map(item => item.interface).filter(Boolean))].sort()
 
       setNetworks(uniqueNetworks)
       setInterfaces(uniqueInterfaces)
@@ -81,16 +71,11 @@ export const useFilteredSpeedtestData = () => {
   const fetchFilteredData = async () => {
     setLoading(true)
     try {
-      // Get all data and filter client-side for now
-      const allData = await speedtestAPI.getSpeedtestData()
-      let filtered = allData
-
-      if (filters.network !== 'all') {
-        filtered = filtered.filter(item => item.network === filters.network)
-      }
-      if (filters.interface !== 'all') {
-        filtered = filtered.filter(item => item.interface === filters.interface)
-      }
+      const allData = await speedtestAPI.getSpeedtestData({ limit: 2000, days: 365 })
+      const filtered = allData.filter(item =>
+        matchesFilter(item.network, filters.network) &&
+        matchesFilter(item.interface, filters.interface)
+      )
 
       setData(filtered)
       setError(null)
