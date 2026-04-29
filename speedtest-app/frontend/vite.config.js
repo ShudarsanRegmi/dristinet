@@ -23,7 +23,7 @@ export default defineConfig({
     // Route frontend /api calls to local backend during development.
     proxy: {
       '/api': {
-        target: 'http://localhost:5000',
+        target: 'http://localhost:3001',
         changeOrigin: true,
       },
     },

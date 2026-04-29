@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react'
+import React, { useState, useEffect, useRef } from 'react'
 import { 
   Container, 
   Typography, 
@@ -36,21 +36,24 @@ import {
   NetworkCheck as LatencyIcon,
   Wifi as WifiIcon,
   Fullscreen as FullscreenIcon,
-  Close as CloseIcon
+  Close as CloseIcon,
+  TrendingUp as TrendingIcon,
+  AccessTime as AccessTimeIcon
 } from '@mui/icons-material'
 
 const Realtime = () => {
   const theme = useTheme()
-  const { data, stats, loading, error } = useSpeedtestData()
+  const { data, stats, loading, error, refetch } = useSpeedtestData()
   const [realtimeData, setRealtimeData] = useState([])
   const [fullscreenChart, setFullscreenChart] = useState(null)
+  const pollIntervalRef = useRef(null)
 
   // Helper function to open chart in fullscreen
   const openFullscreen = (title, content) => {
     setFullscreenChart({ title, content })
   }
 
-  // Get last 24 hours of data
+  // Get last 24 hours of data, with fallback to all data if less than 50 recent tests
   useEffect(() => {
     if (data && data.length > 0) {
       const now = new Date()
@@ -67,9 +70,34 @@ const Realtime = () => {
           })
         }))
       
-      setRealtimeData(recent)
+      // Fallback: if no data in last 24 hours, show at least last 50 tests
+      const display = recent.length > 0 ? recent : data.slice(-50).map(test => ({
+        ...test,
+        time: new Date(test.timestamp).toLocaleTimeString('en-US', { 
+          hour: '2-digit', 
+          minute: '2-digit' 
+        })
+      }))
+      
+      setRealtimeData(display)
     }
   }, [data])
+
+  // Auto-poll for new data every 30 seconds
+  useEffect(() => {
+    const startPolling = () => {
+      if (pollIntervalRef.current) clearInterval(pollIntervalRef.current)
+      pollIntervalRef.current = setInterval(() => {
+        refetch()
+      }, 30000) // Poll every 30 seconds
+    }
+
+    startPolling()
+
+    return () => {
+      if (pollIntervalRef.current) clearInterval(pollIntervalRef.current)
+    }
+  }, [refetch])
 
   const getLatestTest = () => {
     if (!data || data.length === 0) return null
@@ -164,8 +192,9 @@ const Realtime = () => {
             <Card sx={{ height: 400 }}>
               <CardContent>
                 <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
-                  <Typography variant="h6" sx={{ fontWeight: 600 }}>
-                    📈 Speed Trends (Last 24 Hours)
+                  <Typography variant="h6" sx={{ fontWeight: 600, display: 'flex', alignItems: 'center', gap: 1 }}>
+                    <TrendingIcon fontSize="small" />
+                    Speed Trends (Last 24 Hours)
                   </Typography>
                   <IconButton 
                     onClick={() => openFullscreen('Speed Trends (Last 24 Hours)', (
@@ -284,8 +313,9 @@ const Realtime = () => {
             <Card sx={{ height: 400 }}>
               <CardContent>
                 <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
-                  <Typography variant="h6" sx={{ fontWeight: 600 }}>
-                    ⏱️ Latency Monitor
+                  <Typography variant="h6" sx={{ fontWeight: 600, display: 'flex', alignItems: 'center', gap: 1 }}>
+                    <AccessTimeIcon fontSize="small" />
+                    Latency Monitor
                   </Typography>
                   <IconButton 
                     onClick={() => openFullscreen('Latency Monitor (Last 24 Hours)', (
