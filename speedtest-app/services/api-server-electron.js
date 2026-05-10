@@ -15,6 +15,11 @@ class SpeedtestAPI {
         this.dbPath = path.join(this.appDataPath, 'data', 'speedtest.db');
         this.port = process.env.PORT || 3001;
         
+        // Track running speedtest
+        this.currentTest = null;
+        this.currentProgress = 0;
+        this.testResults = null;
+        
         this.setupMiddleware();
         this.setupRoutes();
         this.initializeDatabase();
@@ -194,14 +199,57 @@ class SpeedtestAPI {
             }
         });
 
-        // Run manual speedtest
+        // Run manual speedtest (async - returns immediately)
         this.app.post('/api/speedtest/run', async (req, res) => {
             try {
-                const result = await this.runManualSpeedtest();
-                res.json(result);
+                // If a test is already running, return error
+                if (this.currentTest) {
+                    return res.status(409).json({ error: 'A speedtest is already running' });
+                }
+                
+                // Start the test but don't wait for it
+                this.runManualSpeedtest().then(
+                    (result) => {
+                        this.testResults = result;
+                        this.currentProgress = 100;
+                    },
+                    (error) => {
+                        console.error('Speedtest failed:', error);
+                        this.testResults = null;
+                        this.currentProgress = 0;
+                    }
+                ).finally(() => {
+                    this.currentTest = null;
+                });
+                
+                // Return immediately with testing status
+                this.currentTest = { status: 'running', startTime: Date.now() };
+                this.currentProgress = 0;
+                this.testResults = null;
+                
+                res.json({ success: true, status: 'testing' });
             } catch (error) {
                 res.status(500).json({ error: error.message });
             }
+        });
+
+        // Get speedtest progress
+        this.app.get('/api/speedtest/progress', (req, res) => {
+            if (!this.currentTest) {
+                return res.json({ 
+                    status: 'idle',
+                    progress: 0,
+                    result: this.testResults || null
+                });
+            }
+
+            const status = this.testResults ? 'completed' : 'running';
+            res.json({
+                status: status,
+                progress: this.currentProgress,
+                result: this.testResults || null,
+                timeElapsed: Date.now() - this.currentTest.startTime
+            });
         });
 
         // Get configuration
@@ -262,28 +310,92 @@ class SpeedtestAPI {
 
     async runManualSpeedtest() {
         return new Promise((resolve, reject) => {
-            console.log('Running manual speedtest...');
+            console.log('Running manual speedtest with progress tracking...');
             
-            let rawOutput = '';
+            let lastJsonLine = '';
+            let errorOutput = '';
             
-            const speedtest = spawn('speedtest', [
+            // Try full path first, then fallback to 'speedtest' in PATH
+            const speedtestPaths = ['/snap/bin/speedtest', 'speedtest', '/usr/bin/speedtest', '/usr/local/bin/speedtest'];
+            let speedtestCmd = null;
+            
+            for (const path of speedtestPaths) {
+                try {
+                    const fs = require('fs');
+                    if (fs.existsSync(path) || path === 'speedtest') {
+                        speedtestCmd = path;
+                        break;
+                    }
+                } catch (e) {
+                    // Continue to next path
+                }
+            }
+            
+            if (!speedtestCmd) {
+                speedtestCmd = 'speedtest'; // Default fallback
+            }
+            
+            console.log(`Using speedtest command: ${speedtestCmd}`);
+            
+            // Use JSONL format to get line-by-line progress updates
+            const speedtest = spawn(speedtestCmd, [
                 '--accept-license',
                 '--accept-gdpr',
-                '--format=json'
-            ]);
+                '--format=json',
+                '--progress=yes',
+                '--progress-update-interval=500'
+            ], {
+                timeout: 300000, // 5 minute timeout
+                shell: true
+            });
 
-            speedtest.stdout.on('data', (data) => {
-                rawOutput += data.toString();
+            const readline = require('readline');
+            const rl = readline.createInterface({
+                input: speedtest.stdout,
+                crlfDelay: Infinity
+            });
+
+            // Process each line of JSONL output
+            rl.on('line', (line) => {
+                if (!line.trim()) return;
+                
+                try {
+                    const data = JSON.parse(line);
+                    
+                    // Extract progress from the current operation
+                    if (data.type === 'ping' && data.ping?.progress) {
+                        this.currentProgress = Math.round(data.ping.progress * 20); // Ping is ~20% of total
+                    } else if (data.type === 'download' && data.download?.progress) {
+                        this.currentProgress = Math.round(20 + data.download.progress * 40); // Download is ~40% of total
+                    } else if (data.type === 'upload' && data.upload?.progress) {
+                        this.currentProgress = Math.round(60 + data.upload.progress * 40); // Upload is ~40% of total
+                    } else if (data.type === 'result') {
+                        // Final result line
+                        lastJsonLine = JSON.stringify(data);
+                    }
+                } catch (e) {
+                    // Skip unparseable lines
+                }
             });
 
             speedtest.stderr.on('data', (data) => {
+                errorOutput += data.toString();
                 console.error('Speedtest stderr:', data.toString());
             });
 
+            speedtest.on('error', (error) => {
+                console.error('Speedtest spawn error:', error);
+                rl.close();
+                reject(new Error(`Failed to spawn speedtest: ${error.message}`));
+            });
+
             speedtest.on('close', (code) => {
-                if (code === 0) {
+                rl.close();
+                console.log(`Speedtest exited with code: ${code}`);
+                
+                if (code === 0 && lastJsonLine) {
                     try {
-                        const result = JSON.parse(rawOutput);
+                        const result = JSON.parse(lastJsonLine);
                         const processedResult = {
                             timestamp: new Date().toISOString(),
                             download_mbps: (result.download.bandwidth * 8 / 1000000).toFixed(2),
@@ -294,17 +406,14 @@ class SpeedtestAPI {
                             server_location: result.server?.location || null,
                             isp: result.isp || null
                         };
+                        this.currentProgress = 100;
                         resolve(processedResult);
                     } catch (error) {
                         reject(new Error(`Failed to parse speedtest result: ${error.message}`));
                     }
                 } else {
-                    reject(new Error(`Speedtest failed with code ${code}`));
+                    reject(new Error(`Speedtest failed with code ${code}: ${errorOutput}`));
                 }
-            });
-
-            speedtest.on('error', (error) => {
-                reject(new Error(`Failed to run speedtest: ${error.message}`));
             });
         });
     }

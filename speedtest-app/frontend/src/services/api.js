@@ -40,7 +40,7 @@ class SpeedtestAPI {
   createClient() {
     this.client = axios.create({
       baseURL: this.baseURL,
-      timeout: 10000,
+      timeout: 300000, // 5 minutes - needed for speedtest which can take 30s-2m
     })
 
     // Add response interceptor for error handling
@@ -154,10 +154,21 @@ class SpeedtestAPI {
     return response.data?.data || []
   }
 
-  // Run manual speedtest
+  // Run manual speedtest (async)
   async runSpeedtest() {
     const response = await this.client.post('/speedtest/run')
     return response.data
+  }
+
+  // Get speedtest progress
+  async getSpeedtestProgress() {
+    try {
+      const response = await this.client.get('/speedtest/progress')
+      return response.data
+    } catch (error) {
+      console.error('Failed to get speedtest progress:', error)
+      return null
+    }
   }
 
   // Get service status

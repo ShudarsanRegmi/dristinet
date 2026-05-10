@@ -32,14 +32,35 @@ function createWindow() {
     // Show window when ready
     mainWindow.once('ready-to-show', async () => {
         mainWindow.show();
-        
-        // Start backend services
+
+        // On a new machine, install the backend services first.
+        // Starting the service manager before installation causes a missing-file error
+        // because the per-user service directory does not exist yet.
+        let servicesReady = installer.isServiceInstalled();
+
+        if (!servicesReady) {
+            const installed = await installer.showWelcomeDialog();
+            servicesReady = installed === true;
+
+            if (!servicesReady) {
+                await dialog.showMessageBox(mainWindow, {
+                    type: 'warning',
+                    title: 'Limited Functionality',
+                    message: 'Running in view-only mode',
+                    detail: 'Without the background service, you can only view existing data. No new speedtest data will be collected.\n\nYou can install services later from the Settings menu.',
+                    buttons: ['OK']
+                });
+                return;
+            }
+        }
+
+        // Start backend services only after the installation step has completed.
         console.log('Starting backend services...');
         const serviceResult = await serviceManager.startAllServices();
-        
+
         if (serviceResult.success) {
             console.log(`Backend services started. API running on port ${serviceResult.apiPort}`);
-            
+
             // Send the API port to frontend
             mainWindow.webContents.send('api-config', {
                 apiPort: serviceResult.apiPort,
@@ -47,7 +68,7 @@ function createWindow() {
             });
         } else {
             console.error('Failed to start backend services:', serviceResult.error);
-            
+
             // Show error dialog
             await dialog.showMessageBox(mainWindow, {
                 type: 'error',
@@ -56,21 +77,6 @@ function createWindow() {
                 detail: `Error: ${serviceResult.error}\n\nThe application will run in view-only mode with limited functionality.`,
                 buttons: ['OK']
             });
-        }
-        
-        // Check if first run and show installer
-        if (installer.isFirstRun) {
-            const installed = await installer.showWelcomeDialog();
-            if (!installed) {
-                // Show warning about limited functionality
-                await dialog.showMessageBox(mainWindow, {
-                    type: 'warning',
-                    title: 'Limited Functionality',
-                    message: 'Running in view-only mode',
-                    detail: 'Without the background service, you can only view existing data. No new speedtest data will be collected.\n\nYou can install services later from the Settings menu.',
-                    buttons: ['OK']
-                });
-            }
         }
     });
 

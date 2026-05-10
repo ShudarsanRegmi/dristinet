@@ -34,22 +34,22 @@ import {
 import { motion, AnimatePresence } from 'framer-motion'
 import { format } from 'date-fns'
 import StatsCard from '../components/StatsCard'
+import { speedtestAPI } from '../services/api'
 
 const LiveSpeedtest = () => {
   const STORAGE_KEY = 'liveSpeedtestStateV1'
   const [testState, setTestState] = useState('idle') // idle, running, completed, error
-  const [testId, setTestId] = useState(null)
   const [progress, setProgress] = useState(0)
   const [result, setResult] = useState(null)
   const [comparison, setComparison] = useState(null)
   const [error, setError] = useState(null)
   const [hydrated, setHydrated] = useState(false)
-  const pollIntervalRef = useRef(null)
+  const progressIntervalRef = useRef(null)
 
-  const clearPolling = () => {
-    if (pollIntervalRef.current) {
-      clearInterval(pollIntervalRef.current)
-      pollIntervalRef.current = null
+  const clearProgress = () => {
+    if (progressIntervalRef.current) {
+      clearInterval(progressIntervalRef.current)
+      progressIntervalRef.current = null
     }
   }
 
@@ -59,12 +59,29 @@ const LiveSpeedtest = () => {
       const saved = localStorage.getItem(STORAGE_KEY)
       if (saved) {
         const parsed = JSON.parse(saved)
-        setTestState(parsed.testState || 'idle')
-        setTestId(parsed.testId || null)
-        setProgress(parsed.progress || 0)
-        setResult(parsed.result || null)
-        setComparison(parsed.comparison || null)
-        setError(parsed.error || null)
+        
+        // NEVER restore "running" state - always treat it as idle on load
+        // Only restore completed or error states with their results
+        if (parsed.testState === 'completed') {
+          setTestState('completed')
+          setProgress(100)
+          setResult(parsed.result || null)
+          setComparison(parsed.comparison || null)
+          setError(null)
+        } else if (parsed.testState === 'error') {
+          setTestState('error')
+          setProgress(0)
+          setResult(null)
+          setComparison(null)
+          setError(parsed.error || null)
+        } else {
+          // For idle or running, always reset to idle
+          setTestState('idle')
+          setProgress(0)
+          setResult(null)
+          setComparison(null)
+          setError(null)
+        }
       }
     } catch (err) {
       console.error('Failed to restore live speedtest state:', err)
@@ -73,161 +90,197 @@ const LiveSpeedtest = () => {
     }
 
     return () => {
-      clearPolling()
+      clearProgress()
     }
   }, [])
 
   useEffect(() => {
     if (!hydrated) return
 
-    try {
-      localStorage.setItem(
-        STORAGE_KEY,
-        JSON.stringify({
-          testState,
-          testId,
-          progress,
-          result,
-          comparison,
-          error,
-          updatedAt: new Date().toISOString(),
-        })
-      )
-    } catch (err) {
-      console.error('Failed to persist live speedtest state:', err)
+    // Only save state when not running, to avoid stale "running" states
+    if (testState !== 'running') {
+      try {
+        localStorage.setItem(
+          STORAGE_KEY,
+          JSON.stringify({
+            testState,
+            progress,
+            result,
+            comparison,
+            error,
+            updatedAt: new Date().toISOString(),
+          })
+        )
+      } catch (err) {
+        console.error('Failed to persist live speedtest state:', err)
+      }
     }
-  }, [hydrated, testState, testId, progress, result, comparison, error])
+  }, [hydrated, testState, progress, result, comparison, error])
 
   const startSpeedtest = async () => {
     try {
-      clearPolling()
+      clearProgress()
       setTestState('running')
-      setTestId(null)
       setProgress(0)
       setResult(null)
       setComparison(null)
       setError(null)
 
-      const response = await fetch('/api/speedtest-run', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-      })
-
-      // Safe JSON parse: backend may return empty or non-json on error
-      let data = null
       try {
-        const text = await response.text()
-        data = text ? JSON.parse(text) : null
-      } catch (err) {
-        console.error('Failed to parse startSpeedtest response as JSON', err)
-        throw new Error('Invalid response from server')
-      }
-
-      if (data && data.success) {
-        setTestId(data.test_id)
-        pollTestStatus(data.test_id)
-      } else {
-        throw new Error((data && data.error) || 'Failed to start speedtest')
+        // Call the API service to start speedtest (returns immediately)
+        console.log('Starting speedtest...')
+        const startResponse = await speedtestAPI.runSpeedtest()
+        
+        console.log('Speedtest start response:', startResponse)
+        
+        if (startResponse && startResponse.success) {
+          console.log('Speedtest started, beginning to poll progress')
+          // Now poll for progress
+          pollProgress()
+        } else {
+          const errorMsg = startResponse?.error || 'No success flag in response'
+          console.error('Speedtest failed to start:', errorMsg)
+          throw new Error(errorMsg)
+        }
+      } catch (apiErr) {
+        clearProgress()
+        console.error('API Error:', apiErr)
+        throw apiErr
       }
     } catch (err) {
+      clearProgress()
       setTestState('error')
-      setError(err.message)
+      setError(err.message || 'Failed to start speedtest')
+      console.error('Speedtest error:', err)
     }
   }
 
-  const pollTestStatus = async (id) => {
-    clearPolling()
-
-    pollIntervalRef.current = setInterval(async () => {
+  const pollProgress = () => {
+    clearProgress()
+    
+    progressIntervalRef.current = setInterval(async () => {
       try {
-        const response = await fetch(`/api/speedtest-status/${id}`)
-
-        let data = null
-        try {
-          const text = await response.text()
-          data = text ? JSON.parse(text) : null
-        } catch (err) {
-          console.error('Failed to parse pollTestStatus response as JSON', err)
-          clearPolling()
-          setTestState('error')
-          setError('Invalid status response from server')
+        const progressData = await speedtestAPI.getSpeedtestProgress()
+        
+        if (!progressData) {
           return
         }
 
-        if (data && data.success) {
-          const status = data.status
-          setProgress(status.progress || 0)
+        // Update progress bar with real progress from backend
+        setProgress(Math.round(progressData.progress))
 
-          if (status.status === 'completed') {
-            clearPolling()
-            setTestState('completed')
-            setResult(status.result)
-
-            // Get comparison analysis
-            if (status.result) {
-              await getComparativeAnalysis(status.result)
-            }
-          } else if (status.status === 'error') {
-            clearPolling()
-            setTestState('error')
-            setError(status.error || 'Speedtest failed')
-          }
-        } else {
-          // Unexpected payload
-          console.error('Unexpected poll status payload', data)
+        if (progressData.status === 'completed' && progressData.result) {
+          clearProgress()
+          setTestState('completed')
+          setResult(progressData.result)
+          
+          // Get comparison analysis
+          await getComparativeAnalysis(progressData.result)
+        } else if (progressData.status === 'error') {
+          clearProgress()
+          setTestState('error')
+          setError(progressData.error || 'Speedtest failed')
         }
       } catch (err) {
-        clearPolling()
-        setTestState('error')
-        setError('Failed to get test status')
+        console.error('Error polling progress:', err)
+        // Continue polling even if there's an error
       }
-    }, 1000) // Poll every second
+    }, 500) // Poll every 500ms for real-time updates
   }
-
-  useEffect(() => {
-    // If user navigates away and returns while a test is still running, resume polling.
-    if (!hydrated) return
-    if (testState === 'running' && testId) {
-      pollTestStatus(testId)
-    }
-  }, [hydrated, testState, testId])
 
   const getComparativeAnalysis = async (testResult) => {
     try {
-      const response = await fetch('/api/speedtest-compare', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          current_result: testResult
-        })
-      })
-      let data = null
-      try {
-        const text = await response.text()
-        data = text ? JSON.parse(text) : null
-      } catch (err) {
-        console.error('Failed to parse comparative analysis response as JSON', err)
-        return
-      }
+      // Get recent test history for comparison
+      const recentTests = await speedtestAPI.getRecentTests(10)
+      
+      if (recentTests && recentTests.length > 0) {
+        // Calculate historical metrics
+        const avgDownload = recentTests.reduce((sum, t) => sum + (t.downloadSpeed || 0), 0) / recentTests.length
+        const avgUpload = recentTests.reduce((sum, t) => sum + (t.uploadSpeed || 0), 0) / recentTests.length
+        const avgLatency = recentTests.reduce((sum, t) => sum + (t.latency || 0), 0) / recentTests.length
 
-      if (data && data.success) {
-        setComparison(data.comparison)
-      } else {
-        console.error('Comparative analysis failed or returned invalid payload', data)
+        // Calculate percentiles
+        const downloadPercentile = (recentTests.filter(t => (t.downloadSpeed || 0) <= testResult.download_mbps).length / recentTests.length * 100)
+        const uploadPercentile = (recentTests.filter(t => (t.uploadSpeed || 0) <= testResult.upload_mbps).length / recentTests.length * 100)
+        const latencyPercentile = (recentTests.filter(t => (t.latency || 0) >= testResult.ping_ms).length / recentTests.length * 100)
+
+        // Calculate recent change metrics
+        const lastTest = recentTests[0]
+        const downloadChange = lastTest ? ((testResult.download_mbps - lastTest.downloadSpeed) / lastTest.downloadSpeed * 100) : 0
+        const uploadChange = lastTest ? ((testResult.upload_mbps - lastTest.uploadSpeed) / lastTest.uploadSpeed * 100) : 0
+        const latencyChange = lastTest ? ((testResult.ping_ms - lastTest.latency) / lastTest.latency * 100) : 0
+
+        // Same hour comparison
+        const testHour = new Date(testResult.timestamp).getHours()
+        const sameHourTests = recentTests.filter(t => new Date(t.timestamp).getHours() === testHour)
+        let sameHourComparison = null
+
+        if (sameHourTests.length > 0) {
+          const sameHourAvgDownload = sameHourTests.reduce((sum, t) => sum + (t.downloadSpeed || 0), 0) / sameHourTests.length
+          const sameHourAvgUpload = sameHourTests.reduce((sum, t) => sum + (t.uploadSpeed || 0), 0) / sameHourTests.length
+          
+          const avgSpeedThisHour = (sameHourAvgDownload + sameHourAvgUpload) / 2
+          const currentSpeed = (testResult.download_mbps + testResult.upload_mbps) / 2
+          
+          let comparison = 'typical'
+          if (currentSpeed > avgSpeedThisHour * 1.1) comparison = 'better'
+          else if (currentSpeed < avgSpeedThisHour * 0.9) comparison = 'worse'
+          
+          sameHourComparison = {
+            hour: testHour,
+            comparison,
+            test_count: sameHourTests.length
+          }
+        }
+
+        // Generate insights
+        const insights = []
+        if (downloadPercentile > 75) insights.push('🚀 Excellent download speed - better than 75% of your tests')
+        else if (downloadPercentile < 25) insights.push('⚠️ Download speed is below your average')
+        
+        if (latencyPercentile > 75) insights.push('⏱️ Latency is higher than usual - may affect responsiveness')
+        else if (latencyPercentile < 25) insights.push('✅ Great latency - excellent for gaming/video calls')
+
+        if (downloadChange > 20) insights.push('📈 Download speed improved significantly')
+        else if (downloadChange < -20) insights.push('📉 Download speed decreased - check for interference')
+
+        setComparison({
+          historical_summary: {
+            avg_download: avgDownload,
+            avg_upload: avgUpload,
+            avg_latency: avgLatency,
+            total_tests: recentTests.length
+          },
+          performance_percentiles: {
+            download: downloadPercentile,
+            upload: uploadPercentile,
+            latency: latencyPercentile
+          },
+          recent_comparison: {
+            download_change: downloadChange,
+            upload_change: uploadChange,
+            latency_change: latencyChange
+          },
+          same_hour_comparison: sameHourComparison,
+          insights
+        })
       }
     } catch (err) {
       console.error('Failed to get comparative analysis:', err)
+      // Set minimal comparison object to prevent errors
+      setComparison({
+        historical_summary: { avg_download: 0, avg_upload: 0, avg_latency: 0, total_tests: 0 },
+        performance_percentiles: { download: 0, upload: 0, latency: 0 },
+        recent_comparison: { download_change: 0, upload_change: 0, latency_change: 0 },
+        same_hour_comparison: null,
+        insights: []
+      })
     }
   }
 
   const resetTest = () => {
-    clearPolling()
+    clearProgress()
     setTestState('idle')
-    setTestId(null)
     setProgress(0)
     setResult(null)
     setComparison(null)
@@ -319,7 +372,7 @@ const LiveSpeedtest = () => {
                       Running Speed Test...
                     </Typography>
                     <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
-                      This may take up to 2 minutes
+                      {progress < 20 ? 'Measuring latency...' : progress < 60 ? 'Testing download speed...' : 'Testing upload speed...'}
                     </Typography>
                     <Box sx={{ width: '60%', mx: 'auto' }}>
                       <LinearProgress 
@@ -502,7 +555,7 @@ const LiveSpeedtest = () => {
           </Grid>
 
           {/* Comparative Analysis */}
-          {comparison && (
+          {comparison && comparison.historical_summary && comparison.performance_percentiles && comparison.recent_comparison && (
             <Grid container spacing={3} sx={{ mb: 4 }}>
               {/* Historical Comparison */}
               <Grid item xs={12} md={6}>
@@ -521,13 +574,13 @@ const LiveSpeedtest = () => {
                           Avg Download
                         </Typography>
                         <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'center', mt: 0.5 }}>
-                          {result.downloadSpeed > comparison.historical_summary.avg_download ? (
+                          {result && result.downloadSpeed > comparison.historical_summary.avg_download ? (
                             <TrendingUpIcon color="success" fontSize="small" />
                           ) : (
                             <TrendingDownIcon color="error" fontSize="small" />
                           )}
                           <Typography variant="caption" sx={{ ml: 0.5 }}>
-                            {((result.downloadSpeed - comparison.historical_summary.avg_download) / comparison.historical_summary.avg_download * 100).toFixed(1)}%
+                            {result && ((result.downloadSpeed - comparison.historical_summary.avg_download) / comparison.historical_summary.avg_download * 100).toFixed(1)}%
                           </Typography>
                         </Box>
                       </Box>
@@ -541,13 +594,13 @@ const LiveSpeedtest = () => {
                           Avg Upload
                         </Typography>
                         <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'center', mt: 0.5 }}>
-                          {result.uploadSpeed > comparison.historical_summary.avg_upload ? (
+                          {result && result.uploadSpeed > comparison.historical_summary.avg_upload ? (
                             <TrendingUpIcon color="success" fontSize="small" />
                           ) : (
                             <TrendingDownIcon color="error" fontSize="small" />
                           )}
                           <Typography variant="caption" sx={{ ml: 0.5 }}>
-                            {((result.uploadSpeed - comparison.historical_summary.avg_upload) / comparison.historical_summary.avg_upload * 100).toFixed(1)}%
+                            {result && ((result.uploadSpeed - comparison.historical_summary.avg_upload) / comparison.historical_summary.avg_upload * 100).toFixed(1)}%
                           </Typography>
                         </Box>
                       </Box>
@@ -605,7 +658,45 @@ const LiveSpeedtest = () => {
                     </Box>
                   </Box>
 
-                  {comparison.same_hour_comparison && (
+                  <Box sx={{ mb: 2 }}>
+                    <Typography variant="body2" color="text.secondary" gutterBottom>
+                      Upload Speed Change (vs last 10 tests)
+                    </Typography>
+                    <Box sx={{ display: 'flex', alignItems: 'center' }}>
+                      <Typography variant="h4" color={
+                        comparison.recent_comparison.upload_change > 0 ? 'success.main' : 
+                        comparison.recent_comparison.upload_change < 0 ? 'error.main' : 'text.primary'
+                      }>
+                        {comparison.recent_comparison.upload_change > 0 ? '+' : ''}{comparison.recent_comparison.upload_change.toFixed(1)}%
+                      </Typography>
+                      {comparison.recent_comparison.upload_change > 0 ? (
+                        <TrendingUpIcon color="success" sx={{ ml: 1 }} />
+                      ) : comparison.recent_comparison.upload_change < 0 ? (
+                        <TrendingDownIcon color="error" sx={{ ml: 1 }} />
+                      ) : null}
+                    </Box>
+                  </Box>
+
+                  <Box sx={{ mb: 2 }}>
+                    <Typography variant="body2" color="text.secondary" gutterBottom>
+                      Latency Change (vs last 10 tests)
+                    </Typography>
+                    <Box sx={{ display: 'flex', alignItems: 'center' }}>
+                      <Typography variant="h4" color={
+                        comparison.recent_comparison.latency_change < 0 ? 'success.main' : 
+                        comparison.recent_comparison.latency_change > 0 ? 'error.main' : 'text.primary'
+                      }>
+                        {comparison.recent_comparison.latency_change > 0 ? '+' : ''}{comparison.recent_comparison.latency_change.toFixed(1)}%
+                      </Typography>
+                      {comparison.recent_comparison.latency_change < 0 ? (
+                        <TrendingDownIcon color="success" sx={{ ml: 1 }} />
+                      ) : comparison.recent_comparison.latency_change > 0 ? (
+                        <TrendingUpIcon color="error" sx={{ ml: 1 }} />
+                      ) : null}
+                    </Box>
+                  </Box>
+
+                  <Divider sx={{ my: 2 }} />
                     <Box>
                       <Typography variant="body2" color="text.secondary" gutterBottom>
                         Same Hour Performance ({comparison.same_hour_comparison.hour}:00)

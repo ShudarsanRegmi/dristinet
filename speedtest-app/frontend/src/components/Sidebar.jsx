@@ -112,9 +112,7 @@ const Sidebar = ({ open = true, onToggle }) => {
   // Initialize filters from localStorage and fetch filter options
   useEffect(() => {
     const currentFilters = getGlobalFilters()
-    setNetworkFilter(currentFilters.network)
-    setInterfaceFilter(currentFilters.interface)
-
+    
     const fetchFilterOptions = async () => {
       try {
         const allData = await speedtestAPI.getSpeedtestData({ limit: 2000, days: 365 })
@@ -123,8 +121,20 @@ const Sidebar = ({ open = true, onToggle }) => {
 
         setNetworks(uniqueNetworks)
         setInterfaces(uniqueInterfaces)
+        
+        // Set filters AFTER we have the list of valid options
+        // Validate network filter is in the list or default to 'all'
+        const validNetwork = uniqueNetworks.includes(currentFilters.network) ? currentFilters.network : 'all'
+        setNetworkFilter(validNetwork)
+        
+        // Validate interface filter is in the list or default to 'all'
+        const validInterface = uniqueInterfaces.includes(currentFilters.interface) ? currentFilters.interface : 'all'
+        setInterfaceFilter(validInterface)
       } catch (err) {
         console.error('Failed to fetch filter options:', err)
+        // Fallback to all if data fetch fails
+        setNetworkFilter('all')
+        setInterfaceFilter('all')
       }
     }
 

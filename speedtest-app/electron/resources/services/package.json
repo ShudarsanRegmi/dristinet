@@ -1,8 +1,11 @@
 {
   "name": "speedtest-monitor-services",
   "version": "1.0.0",
+  "description": "Background services for Speedtest Monitor",
+  "main": "speedtest-collector.js",
   "dependencies": {
     "better-sqlite3": "^11.3.0",
+    "node-cron": "^3.0.3",
     "express": "^4.21.1",
     "cors": "^2.8.5"
   }
