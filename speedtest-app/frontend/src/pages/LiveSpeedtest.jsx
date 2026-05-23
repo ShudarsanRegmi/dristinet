@@ -127,25 +127,47 @@ const LiveSpeedtest = () => {
       setError(null)
 
       try {
-        // Call the API service to start speedtest (returns immediately)
+        // Call the API service to start speedtest (returns immediately or may return final result)
         console.log('Starting speedtest...')
         const startResponse = await speedtestAPI.runSpeedtest()
-        
+
         console.log('Speedtest start response:', startResponse)
-        
+
+        // Backend may implement one of two behaviors:
+        // 1) async start: return { success: true, status: 'testing' } and progress must be polled
+        // 2) sync/direct result: return the final result object (download_mbps etc.)
         if (startResponse && startResponse.success) {
           console.log('Speedtest started, beginning to poll progress')
-          // Now poll for progress
           pollProgress()
+        } else if (startResponse && (startResponse.download_mbps || startResponse.upload_mbps || startResponse.ping_ms)) {
+          // Backend returned immediate result object — treat as completed
+          console.log('Speedtest returned immediate result — treating as completed')
+          setProgress(100)
+          setTestState('completed')
+          // Normalize result shape expected by rest of UI
+          const normalized = {
+            downloadSpeed: Number(startResponse.download_mbps) || 0,
+            uploadSpeed: Number(startResponse.upload_mbps) || 0,
+            latency: Number(startResponse.ping_ms) || 0,
+            jitter: Number(startResponse.jitter_ms) || null,
+            serverName: startResponse.server_name || null,
+            serverLocation: startResponse.server_location || null,
+            isp: startResponse.isp || null,
+            timestamp: startResponse.timestamp || new Date().toISOString()
+          }
+          setResult(normalized)
+          await getComparativeAnalysis(normalized)
         } else {
-          const errorMsg = startResponse?.error || 'No success flag in response'
+          const errorMsg = startResponse?.error || 'Unexpected response from backend'
           console.error('Speedtest failed to start:', errorMsg)
           throw new Error(errorMsg)
         }
       } catch (apiErr) {
         clearProgress()
         console.error('API Error:', apiErr)
-        throw apiErr
+        // If axios error, show response body if available
+        const message = apiErr?.response?.data?.error || apiErr?.message || 'API Error'
+        throw new Error(message)
       }
     } catch (err) {
       clearProgress()
@@ -194,21 +216,32 @@ const LiveSpeedtest = () => {
       const recentTests = await speedtestAPI.getRecentTests(10)
       
       if (recentTests && recentTests.length > 0) {
+        // Normalize incoming testResult (backend may return download_mbps or downloadSpeed)
+        const d = Number(testResult.downloadSpeed ?? testResult.download_mbps ?? testResult.download ?? 0)
+        const u = Number(testResult.uploadSpeed ?? testResult.upload_mbps ?? testResult.upload ?? 0)
+        const l = Number(testResult.latency ?? testResult.ping_ms ?? testResult.ping ?? 0)
+
         // Calculate historical metrics
-        const avgDownload = recentTests.reduce((sum, t) => sum + (t.downloadSpeed || 0), 0) / recentTests.length
-        const avgUpload = recentTests.reduce((sum, t) => sum + (t.uploadSpeed || 0), 0) / recentTests.length
-        const avgLatency = recentTests.reduce((sum, t) => sum + (t.latency || 0), 0) / recentTests.length
+        const avgDownload = recentTests.reduce((sum, t) => sum + (Number(t.downloadSpeed) || 0), 0) / recentTests.length
+        const avgUpload = recentTests.reduce((sum, t) => sum + (Number(t.uploadSpeed) || 0), 0) / recentTests.length
+        const avgLatency = recentTests.reduce((sum, t) => sum + (Number(t.latency) || 0), 0) / recentTests.length
 
-        // Calculate percentiles
-        const downloadPercentile = (recentTests.filter(t => (t.downloadSpeed || 0) <= testResult.download_mbps).length / recentTests.length * 100)
-        const uploadPercentile = (recentTests.filter(t => (t.uploadSpeed || 0) <= testResult.upload_mbps).length / recentTests.length * 100)
-        const latencyPercentile = (recentTests.filter(t => (t.latency || 0) >= testResult.ping_ms).length / recentTests.length * 100)
+        // Calculate percentiles (higher is better for bandwidth, lower is better for latency)
+        const downloadPercentile = (recentTests.filter(t => (Number(t.downloadSpeed) || 0) <= d).length / recentTests.length * 100)
+        const uploadPercentile = (recentTests.filter(t => (Number(t.uploadSpeed) || 0) <= u).length / recentTests.length * 100)
+        const latencyPercentile = (recentTests.filter(t => (Number(t.latency) || 0) >= l).length / recentTests.length * 100)
 
-        // Calculate recent change metrics
+        // Calculate recent change metrics (guard against division by zero)
         const lastTest = recentTests[0]
-        const downloadChange = lastTest ? ((testResult.download_mbps - lastTest.downloadSpeed) / lastTest.downloadSpeed * 100) : 0
-        const uploadChange = lastTest ? ((testResult.upload_mbps - lastTest.uploadSpeed) / lastTest.uploadSpeed * 100) : 0
-        const latencyChange = lastTest ? ((testResult.ping_ms - lastTest.latency) / lastTest.latency * 100) : 0
+        const safePercentChange = (current, previous) => {
+          const prev = Number(previous) || 0
+          if (!prev) return 0
+          return ((Number(current) - prev) / prev * 100)
+        }
+
+        const downloadChange = lastTest ? safePercentChange(d, lastTest.downloadSpeed) : 0
+        const uploadChange = lastTest ? safePercentChange(u, lastTest.uploadSpeed) : 0
+        const latencyChange = lastTest ? safePercentChange(l, lastTest.latency) : 0
 
         // Same hour comparison
         const testHour = new Date(testResult.timestamp).getHours()
@@ -216,11 +249,11 @@ const LiveSpeedtest = () => {
         let sameHourComparison = null
 
         if (sameHourTests.length > 0) {
-          const sameHourAvgDownload = sameHourTests.reduce((sum, t) => sum + (t.downloadSpeed || 0), 0) / sameHourTests.length
-          const sameHourAvgUpload = sameHourTests.reduce((sum, t) => sum + (t.uploadSpeed || 0), 0) / sameHourTests.length
+          const sameHourAvgDownload = sameHourTests.reduce((sum, t) => sum + (Number(t.downloadSpeed) || 0), 0) / sameHourTests.length
+          const sameHourAvgUpload = sameHourTests.reduce((sum, t) => sum + (Number(t.uploadSpeed) || 0), 0) / sameHourTests.length
           
           const avgSpeedThisHour = (sameHourAvgDownload + sameHourAvgUpload) / 2
-          const currentSpeed = (testResult.download_mbps + testResult.upload_mbps) / 2
+          const currentSpeed = (d + u) / 2
           
           let comparison = 'typical'
           if (currentSpeed > avgSpeedThisHour * 1.1) comparison = 'better'
@@ -305,7 +338,22 @@ const LiveSpeedtest = () => {
   }
 
   const formatSpeed = (speed) => {
-    return speed ? speed.toFixed(1) : '0.0'
+    const numericSpeed = Number(speed)
+    return Number.isFinite(numericSpeed) ? numericSpeed.toFixed(1) : '0.0'
+  }
+
+  const formatNumber = (value, digits = 1, fallback = '0.0') => {
+    const numericValue = Number(value)
+    return Number.isFinite(numericValue) ? numericValue.toFixed(digits) : fallback
+  }
+
+  const formatPercentChange = (value) => {
+    const numericValue = Number(value)
+    if (!Number.isFinite(numericValue)) {
+      return '0.0%'
+    }
+
+    return `${numericValue > 0 ? '+' : ''}${numericValue.toFixed(1)}%`
   }
 
   return (
@@ -445,7 +493,7 @@ const LiveSpeedtest = () => {
             <Grid item xs={12} sm={6} md={3}>
               <StatsCard
                 title="Latency"
-                value={result.latency ? result.latency.toFixed(0) : '0'}
+                value={formatNumber(result.latency, 0, '0')}
                 unit="ms"
                 icon={<LatencyIcon sx={{ fontSize: 32 }} />}
                 color="warning"
@@ -502,7 +550,7 @@ const LiveSpeedtest = () => {
                       <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 1 }}>
                         <Typography color="text.secondary">Download Speed</Typography>
                         <Chip
-                          label={`${comparison.performance_percentiles.download.toFixed(0)}th percentile`}
+                          label={`${formatNumber(comparison.performance_percentiles.download, 0, '0')}th percentile`}
                           color={getPerformanceColor(comparison.performance_percentiles.download)}
                           size="small"
                         />
@@ -519,7 +567,7 @@ const LiveSpeedtest = () => {
                       <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 1 }}>
                         <Typography color="text.secondary">Upload Speed</Typography>
                         <Chip
-                          label={`${comparison.performance_percentiles.upload.toFixed(0)}th percentile`}
+                          label={`${formatNumber(comparison.performance_percentiles.upload, 0, '0')}th percentile`}
                           color={getPerformanceColor(comparison.performance_percentiles.upload)}
                           size="small"
                         />
@@ -536,7 +584,7 @@ const LiveSpeedtest = () => {
                       <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 1 }}>
                         <Typography color="text.secondary">Latency</Typography>
                         <Chip
-                          label={`${comparison.performance_percentiles.latency.toFixed(0)}th percentile`}
+                          label={`${formatNumber(comparison.performance_percentiles.latency, 0, '0')}th percentile`}
                           color={getPerformanceColor(comparison.performance_percentiles.latency)}
                           size="small"
                         />
@@ -608,7 +656,7 @@ const LiveSpeedtest = () => {
                     <Grid item xs={4}>
                       <Box sx={{ textAlign: 'center' }}>
                         <Typography variant="h5" color="warning.main">
-                          {comparison.historical_summary.avg_latency.toFixed(0)}
+                          {formatNumber(comparison.historical_summary.avg_latency, 0, '0')}
                         </Typography>
                         <Typography variant="caption" color="text.secondary">
                           Avg Latency (ms)
@@ -620,7 +668,11 @@ const LiveSpeedtest = () => {
                             <TrendingDownIcon color="error" fontSize="small" />
                           )}
                           <Typography variant="caption" sx={{ ml: 0.5 }}>
-                            {((result.latency - comparison.historical_summary.avg_latency) / comparison.historical_summary.avg_latency * 100).toFixed(1)}%
+                            {formatPercentChange(
+                              comparison.historical_summary.avg_latency
+                                ? ((result.latency - comparison.historical_summary.avg_latency) / comparison.historical_summary.avg_latency) * 100
+                                : 0
+                            )}
                           </Typography>
                         </Box>
                       </Box>
@@ -648,7 +700,7 @@ const LiveSpeedtest = () => {
                         comparison.recent_comparison.download_change > 0 ? 'success.main' : 
                         comparison.recent_comparison.download_change < 0 ? 'error.main' : 'text.primary'
                       }>
-                        {comparison.recent_comparison.download_change > 0 ? '+' : ''}{comparison.recent_comparison.download_change.toFixed(1)}%
+                        {formatPercentChange(comparison.recent_comparison.download_change)}
                       </Typography>
                       {comparison.recent_comparison.download_change > 0 ? (
                         <TrendingUpIcon color="success" sx={{ ml: 1 }} />
@@ -667,7 +719,7 @@ const LiveSpeedtest = () => {
                         comparison.recent_comparison.upload_change > 0 ? 'success.main' : 
                         comparison.recent_comparison.upload_change < 0 ? 'error.main' : 'text.primary'
                       }>
-                        {comparison.recent_comparison.upload_change > 0 ? '+' : ''}{comparison.recent_comparison.upload_change.toFixed(1)}%
+                        {formatPercentChange(comparison.recent_comparison.upload_change)}
                       </Typography>
                       {comparison.recent_comparison.upload_change > 0 ? (
                         <TrendingUpIcon color="success" sx={{ ml: 1 }} />
@@ -686,7 +738,7 @@ const LiveSpeedtest = () => {
                         comparison.recent_comparison.latency_change < 0 ? 'success.main' : 
                         comparison.recent_comparison.latency_change > 0 ? 'error.main' : 'text.primary'
                       }>
-                        {comparison.recent_comparison.latency_change > 0 ? '+' : ''}{comparison.recent_comparison.latency_change.toFixed(1)}%
+                        {formatPercentChange(comparison.recent_comparison.latency_change)}
                       </Typography>
                       {comparison.recent_comparison.latency_change < 0 ? (
                         <TrendingDownIcon color="success" sx={{ ml: 1 }} />
@@ -698,17 +750,28 @@ const LiveSpeedtest = () => {
 
                   <Divider sx={{ my: 2 }} />
                     <Box>
-                      <Typography variant="body2" color="text.secondary" gutterBottom>
-                        Same Hour Performance ({comparison.same_hour_comparison.hour}:00)
-                      </Typography>
-                      <Typography variant="body1">
-                        {comparison.same_hour_comparison.comparison === 'better' ? '👍 Better than usual' : 
-                         comparison.same_hour_comparison.comparison === 'worse' ? '👎 Worse than usual' : 
-                         '➡️ Typical performance'}
-                      </Typography>
-                      <Typography variant="caption" color="text.secondary">
-                        Based on {comparison.same_hour_comparison.test_count} tests at this hour
-                      </Typography>
+                      {comparison.same_hour_comparison ? (
+                        <>
+                          <Typography variant="body2" color="text.secondary" gutterBottom>
+                            Same Hour Performance ({comparison.same_hour_comparison.hour}:00)
+                          </Typography>
+                          <Typography variant="body1">
+                            {comparison.same_hour_comparison.comparison === 'better' ? '👍 Better than usual' : 
+                             comparison.same_hour_comparison.comparison === 'worse' ? '👎 Worse than usual' : 
+                             '➡️ Typical performance'}
+                          </Typography>
+                          <Typography variant="caption" color="text.secondary">
+                            Based on {comparison.same_hour_comparison.test_count} tests at this hour
+                          </Typography>
+                        </>
+                      ) : (
+                        <>
+                          <Typography variant="body2" color="text.secondary" gutterBottom>
+                            Same Hour Performance
+                          </Typography>
+                          <Typography variant="body1">No sufficient historical data for this hour</Typography>
+                        </>
+                      )}
                     </Box>
                   )}
                 </Paper>
