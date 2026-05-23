@@ -325,12 +325,6 @@ const LiveSpeedtest = () => {
     }
   }
 
-  const getProgressColor = () => {
-    if (progress < 30) return 'info'
-    if (progress < 70) return 'warning'
-    return 'success'
-  }
-
   const getPerformanceColor = (percentile) => {
     if (percentile >= 75) return 'success'
     if (percentile >= 25) return 'warning'
@@ -414,7 +408,7 @@ const LiveSpeedtest = () => {
                   animate={{ opacity: 1 }}
                   exit={{ opacity: 0 }}
                 >
-                  <Box sx={{ mb: 3 }}>
+                  <Box sx={{ mb: 3, display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
                     <CircularProgress size={60} sx={{ mb: 2 }} />
                     <Typography variant="h6" sx={{ mb: 1 }}>
                       Running Speed Test...
@@ -422,17 +416,9 @@ const LiveSpeedtest = () => {
                     <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
                       {progress < 20 ? 'Measuring latency...' : progress < 60 ? 'Testing download speed...' : 'Testing upload speed...'}
                     </Typography>
-                    <Box sx={{ width: '60%', mx: 'auto' }}>
-                      <LinearProgress 
-                        variant="determinate" 
-                        value={progress} 
-                        color={getProgressColor()}
-                        sx={{ height: 8, borderRadius: 4 }}
-                      />
-                      <Typography variant="body2" sx={{ mt: 1 }}>
-                        {progress}% Complete
-                      </Typography>
-                    </Box>
+                    <Typography variant="body2" color="text.secondary">
+                      Please wait while the test finishes.
+                    </Typography>
                   </Box>
                 </motion.div>
               )}
