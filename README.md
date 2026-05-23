@@ -1,5 +1,10 @@
 # Dristinet
 
+<img width="1536" height="1024" alt="poster" src="https://github.com/user-attachments/assets/2abc1738-cfac-48f8-96dd-049e4a979ca9" />
+
+<br/>
+<br/>
+
 Dristinet is a network intelligence and analytics platform that continuously monitors internet connection performance through periodic speed tests, collects and organizes connectivity telemetry, and provides statistical analysis and visual insights into connection quality, stability, latency behavior, throughput consistency, outages, and long-term performance trends through an interactive dashboard.
 
 This project is developed and tested on Linux. The current release is distributed as an AppImage for Linux, and the same architecture can be ported to Windows and macOS in future builds.
